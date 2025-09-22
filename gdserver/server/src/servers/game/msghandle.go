@@ -47,6 +47,9 @@ func InitMessageHandlers() {
 	MsgHandler.RegisterHandler(pb.MessageId_LEAVE_ROOM_REQUEST, (*Player).HandleLeaveRoomRequest)
 	MsgHandler.RegisterHandler(pb.MessageId_GET_READY_REQUEST, (*Player).HandleGetReadyRequest)
 
+	// 添加获取房间列表的处理
+	MsgHandler.RegisterHandler(pb.MessageId_GET_ROOM_LIST_REQUEST, (*Player).HandleGetRoomListRequest)
+
 	MsgHandler.RegisterHandler(pb.MessageId_GAME_ACTION_REQUEST, (*Player).HandlePlayerActionRequest)
 
 }

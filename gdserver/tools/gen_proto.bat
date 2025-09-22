@@ -10,4 +10,4 @@ protoc.exe ^
   --go-grpc_opt=paths=source_relative ^
   ../proto/*.proto
 
-protoc.exe -I=../proto --python_out=../client/ ../proto/*.proto
+rem protoc.exe -I=../proto --python_out=../client/ ../proto/*.proto

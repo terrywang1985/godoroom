@@ -1,4 +1,6 @@
 
 /*.exe
 
+*.exe*
+
 /gdserver/tools/code/

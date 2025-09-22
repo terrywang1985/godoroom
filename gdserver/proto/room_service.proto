@@ -56,8 +56,6 @@ message StartGameRpcResponse {
   string room_id = 2;
 }
 
-
-
 message PlayerActionRpcRequest {
   string room_id = 1;
   uint64 player_id = 2;
@@ -68,7 +66,15 @@ message PlayerActionRpcResponse {
   game.ErrorCode ret = 1;
 }
 
+// 获取房间列表的请求和响应消息
+message GetRoomListRpcRequest {
+  // 可以添加过滤条件，比如房间状态、房间类型等
+}
 
+message GetRoomListRpcResponse {
+  game.ErrorCode ret = 1;
+  repeated game.Room rooms = 2; // 房间列表
+}
 
 service RoomRpcService {
   rpc CreateRoomRpc(CreateRoomRpcRequest) returns (CreateRoomRpcResponse);
@@ -76,6 +82,9 @@ service RoomRpcService {
   rpc LeaveRoomRpc(LeaveRoomRpcRequest) returns (LeaveRoomRpcResponse);
   rpc GetReadyRpc(GetReadyRpcRequest) returns (GetReadyRpcResponse);
   rpc StartGameRpc(StartGameRpcRequest) returns (StartGameRpcResponse);
+
+  // 获取房间列表
+  rpc GetRoomListRpc(GetRoomListRpcRequest) returns (GetRoomListRpcResponse);
 
   // 使用流式 RPC 处理玩家操作
   //rpc PlayerActionRpc(stream PlayerActionRpcRequest) returns (stream PlayerActionRpcResponse);

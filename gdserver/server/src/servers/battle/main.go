@@ -252,6 +252,34 @@ func (s *BattleServer) PlayerActionRpc(ctx context.Context, req *pb.PlayerAction
 	return &pb.PlayerActionRpcResponse{Ret: pb.ErrorCode_OK}, nil
 }
 
+// GetRoomListRpc 获取房间列表
+func (s *BattleServer) GetRoomListRpc(ctx context.Context, req *pb.GetRoomListRpcRequest) (*pb.GetRoomListRpcResponse, error) {
+	slog.Info("GetRoomListRpc called")
+
+	// 获取所有房间信息
+	s.RoomsMutex.RLock()
+	defer s.RoomsMutex.RUnlock()
+
+	var rooms []*pb.Room
+	for roomID, room := range s.BattleRooms {
+		// 创建房间信息
+		roomInfo := &pb.Room{
+			Id:             roomID,
+			Name:           "Battle Room", // 可以根据需要修改房间名称
+			MaxPlayers:     4,             // 最大玩家数，可以根据需要调整
+			CurrentPlayers: int32(len(room.Players)), // 当前玩家数
+		}
+		rooms = append(rooms, roomInfo)
+	}
+
+	slog.Info("Returning room list", "count", len(rooms))
+
+	return &pb.GetRoomListRpcResponse{
+		Ret:   pb.ErrorCode_OK,
+		Rooms: rooms,
+	}, nil
+}
+
 // 获取本机IP
 func getLocalIP() (string, error) {
 	addrs, err := net.InterfaceAddrs()

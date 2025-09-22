@@ -24,6 +24,7 @@ const (
 	RoomRpcService_LeaveRoomRpc_FullMethodName    = "/room_service.RoomRpcService/LeaveRoomRpc"
 	RoomRpcService_GetReadyRpc_FullMethodName     = "/room_service.RoomRpcService/GetReadyRpc"
 	RoomRpcService_StartGameRpc_FullMethodName    = "/room_service.RoomRpcService/StartGameRpc"
+	RoomRpcService_GetRoomListRpc_FullMethodName  = "/room_service.RoomRpcService/GetRoomListRpc"
 	RoomRpcService_PlayerActionRpc_FullMethodName = "/room_service.RoomRpcService/PlayerActionRpc"
 )
 
@@ -36,6 +37,8 @@ type RoomRpcServiceClient interface {
 	LeaveRoomRpc(ctx context.Context, in *LeaveRoomRpcRequest, opts ...grpc.CallOption) (*LeaveRoomRpcResponse, error)
 	GetReadyRpc(ctx context.Context, in *GetReadyRpcRequest, opts ...grpc.CallOption) (*GetReadyRpcResponse, error)
 	StartGameRpc(ctx context.Context, in *StartGameRpcRequest, opts ...grpc.CallOption) (*StartGameRpcResponse, error)
+	// 获取房间列表
+	GetRoomListRpc(ctx context.Context, in *GetRoomListRpcRequest, opts ...grpc.CallOption) (*GetRoomListRpcResponse, error)
 	// 使用流式 RPC 处理玩家操作
 	// rpc PlayerActionRpc(stream PlayerActionRpcRequest) returns (stream PlayerActionRpcResponse);
 	PlayerActionRpc(ctx context.Context, in *PlayerActionRpcRequest, opts ...grpc.CallOption) (*PlayerActionRpcResponse, error)
@@ -99,6 +102,16 @@ func (c *roomRpcServiceClient) StartGameRpc(ctx context.Context, in *StartGameRp
 	return out, nil
 }
 
+func (c *roomRpcServiceClient) GetRoomListRpc(ctx context.Context, in *GetRoomListRpcRequest, opts ...grpc.CallOption) (*GetRoomListRpcResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRoomListRpcResponse)
+	err := c.cc.Invoke(ctx, RoomRpcService_GetRoomListRpc_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *roomRpcServiceClient) PlayerActionRpc(ctx context.Context, in *PlayerActionRpcRequest, opts ...grpc.CallOption) (*PlayerActionRpcResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PlayerActionRpcResponse)
@@ -118,6 +131,8 @@ type RoomRpcServiceServer interface {
 	LeaveRoomRpc(context.Context, *LeaveRoomRpcRequest) (*LeaveRoomRpcResponse, error)
 	GetReadyRpc(context.Context, *GetReadyRpcRequest) (*GetReadyRpcResponse, error)
 	StartGameRpc(context.Context, *StartGameRpcRequest) (*StartGameRpcResponse, error)
+	// 获取房间列表
+	GetRoomListRpc(context.Context, *GetRoomListRpcRequest) (*GetRoomListRpcResponse, error)
 	// 使用流式 RPC 处理玩家操作
 	// rpc PlayerActionRpc(stream PlayerActionRpcRequest) returns (stream PlayerActionRpcResponse);
 	PlayerActionRpc(context.Context, *PlayerActionRpcRequest) (*PlayerActionRpcResponse, error)
@@ -145,6 +160,9 @@ func (UnimplementedRoomRpcServiceServer) GetReadyRpc(context.Context, *GetReadyR
 }
 func (UnimplementedRoomRpcServiceServer) StartGameRpc(context.Context, *StartGameRpcRequest) (*StartGameRpcResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartGameRpc not implemented")
+}
+func (UnimplementedRoomRpcServiceServer) GetRoomListRpc(context.Context, *GetRoomListRpcRequest) (*GetRoomListRpcResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRoomListRpc not implemented")
 }
 func (UnimplementedRoomRpcServiceServer) PlayerActionRpc(context.Context, *PlayerActionRpcRequest) (*PlayerActionRpcResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PlayerActionRpc not implemented")
@@ -260,6 +278,24 @@ func _RoomRpcService_StartGameRpc_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RoomRpcService_GetRoomListRpc_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRoomListRpcRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoomRpcServiceServer).GetRoomListRpc(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RoomRpcService_GetRoomListRpc_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoomRpcServiceServer).GetRoomListRpc(ctx, req.(*GetRoomListRpcRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RoomRpcService_PlayerActionRpc_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PlayerActionRpcRequest)
 	if err := dec(in); err != nil {
@@ -304,6 +340,10 @@ var RoomRpcService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StartGameRpc",
 			Handler:    _RoomRpcService_StartGameRpc_Handler,
+		},
+		{
+			MethodName: "GetRoomListRpc",
+			Handler:    _RoomRpcService_GetRoomListRpc_Handler,
 		},
 		{
 			MethodName: "PlayerActionRpc",
