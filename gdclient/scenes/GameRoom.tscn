@@ -1,0 +1,58 @@
+[gd_scene load_steps=2 format=3 uid="uid://e4z6a8b0c2d5g"]
+
+[ext_resource type="Script" path="res://scripts/GameRoom.gd" id="1_1q3vm"]
+
+[node name="GameRoom" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_1q3vm")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="RoomInfoContainer" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="RoomNameLabel" type="Label" parent="VBoxContainer/RoomInfoContainer"]
+layout_mode = 2
+text = "房间: "
+
+[node name="VSeparator" type="VSeparator" parent="VBoxContainer/RoomInfoContainer"]
+layout_mode = 2
+
+[node name="PlayerCountLabel" type="Label" parent="VBoxContainer/RoomInfoContainer"]
+layout_mode = 2
+text = "玩家数量: 1/4"
+
+[node name="HSeparator" type="HSeparator" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="GameArea" type="Panel" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="PlayersContainer" type="Node2D" parent="VBoxContainer/GameArea"]
+
+[node name="HSeparator2" type="HSeparator" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="ControlsContainer" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="MovementLabel" type="Label" parent="VBoxContainer/ControlsContainer"]
+layout_mode = 2
+text = "移动: WASD键"
+
+[node name="VSeparator2" type="VSeparator" parent="VBoxContainer/ControlsContainer"]
+layout_mode = 2
+
+[node name="LeaveButton" type="Button" parent="VBoxContainer/ControlsContainer"]
+layout_mode = 2
+text = "离开房间"
+
+[connection signal="pressed" from="VBoxContainer/ControlsContainer/LeaveButton" to="." method="_on_leave_button_pressed"]

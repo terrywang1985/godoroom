@@ -1,0 +1,465 @@
+
+// desktop_pet.proto
+syntax = "proto3";
+
+// 卡牌定义
+message Card {
+  uint64 id = 1;
+  string name = 2;
+  string description = 3;
+  string image = 4;
+  int32  rarity = 5;
+  int32 spell_class = 6;
+}
+
+
+
+// --------------------
+// 基础数据类型定义
+message WordCard {
+  uint64 id = 1;          // 卡牌ID
+  string word = 2;       // 卡牌名称
+  string word_class = 3; // 名词
+  string description = 4; // 卡牌描述
+}
+
+//卡牌桌面
+message CardTable {
+  repeated WordCard cards = 1;  // 桌面上的卡牌
+  string sentence = 2; // 当前的句子
+}
+
+// 玩家数据（每个玩家拥有手牌、牌组等信息）
+message BattlePlayer {
+  uint64 id = 1;
+  string name = 2;
+  repeated WordCard cards = 3;   // 手牌（例如：最多5张卡牌）
+  int32 current_score = 4;     // 当前分数
+}
+
+
+// --------------------
+// 操作指令定义
+// --------------------
+enum ActionType {
+  ACTION_UNKNOWN = 0;
+  PLACE_CARD = 1;    // 出牌
+  SKIP_TURN = 2;    // 跳过回合
+  AUTO_CHAT = 3;    // 自动聊天
+}
+
+// 拖放卡牌操作
+message PlaceCardAction {
+  uint64 card_id = 1;
+  int32 target_index = 2; // 目标位置索引（例如：放置到桌面上的某个位置）
+}
+
+// 游戏操作日志，记录每次客户端的指令操作
+message GameAction {
+  uint64 player_id = 1;
+  ActionType action_type = 2;
+  int64 timestamp = 3;  // Unix 毫秒时间戳
+  oneof action_detail {
+    PlaceCardAction place_card = 4;
+  }
+}
+
+// --------------------
+// 服务器状态同步（帧消息）
+// --------------------
+enum ActionResult {
+  SUCCESS = 0;
+  ERROR_INVALID_TARGET = 1; // 无效的目标位置
+  ERROR_CARD_NOT_FOUND = 2; // 卡牌未找到
+  ERROR_NOT_YOUR_TURN = 3; // 不是你的回合
+  ERROR_UNKNOWN = 4; // 未知错误
+}
+
+message ActionResponse {
+  ActionResult result = 1;
+  int64 server_time = 2;
+  GameState state = 3;
+}
+
+message GameState {
+  repeated BattlePlayer players = 1; // 当前玩家列表
+  CardTable card_table = 2; // 当前卡牌桌面状态
+  int32 current_turn = 3; // 当前轮到的玩家索引
+}
+
+//游戏状态通知
+//包含当前玩家列表、卡牌桌面状态、当前轮到的玩家索引
+message GameStateNotify
+{
+  uint64 be_notified_uid = 1; // 被通知的用户ID
+  string room_id = 2;
+  GameState game_state = 3; // 游戏状态
+}
+
+
+// 玩家操作请求
+message PlayerActionNotify {
+  uint64 be_notified_uid = 1; // 被通知的用户ID
+  string room_id = 2;
+  uint64 player_id = 3;  //操作者 id
+  GameAction action = 4;
+}
+
+message NotifyResponse{
+  int32 ret = 1;
+///以上是battle.proto的内容，以下是desktop_pet.proto的内容
+}
+
+message RoomPlayer {
+  uint64 uid = 1;
+  string name = 2;
+  //Position position = 3;
+}
+
+message Room {
+  string id = 1;
+  string name = 2;
+  int32 max_players = 3; // 最大玩家数
+  int32 current_players = 4; // 当前玩家数
+}
+
+message RoomDetail {
+  Room room = 1;
+  repeated RoomPlayer current_players = 2; // 房间内的玩家列表
+}
+
+// 客户端 -> 网关
+message AuthRequest {
+  string token = 1;             // 登录服务器颁发的临时令牌
+  string protocol_version = 2;  // 协议版本
+  string client_version = 3;    // 客户端版本
+  string device_type = 4;       // 设备类型
+  string device_id = 5;         // 设备ID
+  string app_id = 6;            // 应用ID
+  string nonce = 7;             // 随机数（防重放）
+  int64 timestamp = 8;          // 请求时间戳
+  string signature = 9;         // 请求签名
+  bool is_guest = 10;           // 是否为游客登录（新增）
+}
+
+// 网关 -> 客户端
+message AuthResponse {
+  ErrorCode ret = 1;            // 错误码
+  uint64 uid = 2;               // 用户唯一标识
+  string conn_id = 3;           // 连接ID
+  string server_time = 4;       // 服务器时间
+  int64 session_expiry = 5;     // 会话过期时间
+  string nickname = 6;          // 用户昵称
+  int32 level = 7;              // 用户等级
+  int64 exp = 8;                // 经验值
+  int64 gold = 9;               // 金币数量
+  int64 diamond = 10;           // 钻石数量
+  string error_msg = 11;        // 错误详细信息
+  bool is_guest = 12;           // 是否为游客账号（新增）
+}
+
+
+message GetRoomListRequest {
+}
+
+message GetRoomListResponse {
+  ErrorCode ret = 1;
+  repeated Room rooms = 2;
+}
+
+message CreateRoomRequest {
+  string name = 1;
+}
+
+message CreateRoomResponse {
+  ErrorCode ret = 1;
+  Room room = 2;
+}
+
+message JoinRoomRequest {
+  string roomId = 1;
+}
+
+message JoinRoomResponse {
+  ErrorCode ret = 1;
+}
+
+message LeaveRoomRequest {
+  string playerId = 1;
+}
+
+message LeaveRoomResponse {
+  ErrorCode ret = 1;
+  Room room = 2;
+}
+
+message GetReadyRequest {
+  string playerId = 1;
+}
+
+message GetReadyResponse {
+  ErrorCode ret = 1;
+}
+
+
+//背包信息
+message BackpackInfo
+{
+  repeated Card cards = 1;
+}
+
+message UserInfo{
+  uint64 uid = 1;
+  string name = 2;
+  int64 exp = 3;
+  int64 gold = 4;
+  int64 diamond = 5;
+  int32 draw_card_count = 6;
+  BackpackInfo backpack = 7;
+}
+
+message GetUserInfoRequest {
+  uint64 uid = 1;
+}
+message GetUserInfoResponse {
+  ErrorCode ret = 1;
+  UserInfo user_info= 2;
+}
+
+
+//抽卡
+message DrawCardRequest {
+  uint64 uid = 1;
+  int32   count = 2;
+}
+
+
+message DrawCardResponse {
+  ErrorCode ret = 1;
+  repeated Card cards = 2;
+}
+
+//开始游戏
+message StartGameBattleRequest
+{
+  uint64 uid = 1;
+}
+
+message StartGameBattleResponse
+{
+  ErrorCode ret = 1;
+  string battle_id = 2; // 战斗房间ID
+  string battle_server_addr = 3; // 战斗服务器地址
+}
+
+
+//游戏动作
+message GameActionRequest
+{
+  GameAction action = 1;
+}
+
+message GameActionResponse
+{
+  ErrorCode ret = 1;
+}
+
+
+// 玩家初始数据（用于创建房间时传递）
+message PlayerInitData {
+  uint64 player_id = 1;
+  string player_name = 2; // 玩家名称
+}
+
+// 新增消息体
+message MatchRequest {
+  PlayerInitData player_data = 1;
+}
+
+message MatchResponse {
+  ErrorCode ret = 1;
+  string battle_id = 2;
+  string battle_server_addr = 3;
+}
+
+
+
+
+enum ErrorCode {
+  OK = 0;
+  INVALID_PARAM = 1;
+  SERVER_ERROR = 2;
+  AUTH_FAILED = 3;
+  NOT_FOUND = 4;
+  ALREADY_EXISTS = 5;
+  NOT_ALLOWED = 6;
+  NOT_SUPPORTED = 7;
+  TIMEOUT = 8;
+  INVALID_STATE = 9;
+  INVALID_ACTION = 10;
+  INVALID_CARD = 11;
+  INVALID_ROOM = 12;
+  INVALID_USER = 13;
+  PLAYER_ALREADY_IN_ROOM = 14;
+  }
+
+// 消息ID定义
+// 响应消息固定比请求消息ID大1
+// 例如：LOGIN_REQUEST = 0, LOGIN_RESPONSE = 1
+enum MessageId {
+  LOGIN_REQUEST = 0;
+  LOGIN_RESPONSE = 1;
+
+  AUTH_REQUEST = 2;
+  AUTH_RESPONSE = 3;
+
+  GET_USER_INFO_REQUEST = 4;
+  GET_USER_INFO_RESPONSE = 5;
+
+  GET_ROOM_LIST_REQUEST = 6;
+  GET_ROOM_LIST_RESPONSE = 7;
+
+  CREATE_ROOM_REQUEST = 8;
+  CREATE_ROOM_RESPONSE = 9;
+
+  JOIN_ROOM_REQUEST = 10;
+  JOIN_ROOM_RESPONSE = 11;
+
+  LEAVE_ROOM_REQUEST = 12;
+  LEAVE_ROOM_RESPONSE = 13;
+
+  ROOM_STATE_NOTIFICATION = 14; //未开始游戏前，房间内玩家信息
+  GAME_STATE_NOTIFICATION = 15; //游戏状态通知（包含当前玩家列表、卡牌桌面状态、当前轮到的玩家索引）
+
+  DRAW_CARD_REQUEST = 16;
+  DRAW_CARD_RESPONSE = 17;
+
+  GET_READY_REQUEST = 18;
+  GET_READY_RESPONSE = 19;
+
+  GAME_ACTION_REQUEST = 20;
+  GAME_ACTION_RESPONSE = 21;
+
+  GAME_ACTION_NOTIFICATION = 22; //游戏动作通知
+
+
+}
+
+message Message {
+  string clientId = 1;   //客户端唯一标识
+  int32 msgSerialNo = 2; //消息序列号, 每条消息加1
+  MessageId id = 3;   //消息ID
+  bytes data = 4;   //消息体
+}
+
+///以上是battle.proto, game.proto 的内容,以下是desktop_pet.proto的内容
+
+// 皮肤信息
+message SkinInfo {
+    string id = 1;
+    string name = 2;
+    string description = 3;
+    int32 price = 4;
+    string image_url = 5;
+    string rarity = 6; // 稀有度
+    bool owned = 7;    // 是否已拥有
+    bool equipped = 8; // 是否已装备
+}
+
+// 商城物品列表
+message MarketItemsResponse {
+    ErrorCode ret = 1;
+    repeated SkinInfo items = 2;
+}
+
+// 背包物品列表
+message BackpackItemsResponse {
+    ErrorCode ret = 1;
+    repeated SkinInfo items = 2;
+}
+
+// 购买请求
+message PurchaseRequest {
+    string item_id = 1;
+    string item_type = 2; // skin, decoration, etc.
+}
+
+// 购买响应
+message PurchaseResponse {
+    ErrorCode ret = 1;
+    string item_id = 2;
+}
+
+// 装备请求
+message EquipRequest {
+    string item_id = 1;
+}
+
+// 装备响应
+message EquipResponse {
+    ErrorCode ret = 1;
+    string item_id = 2;
+}
+
+// 皮肤数据请求
+message SkinDataRequest {
+    string skin_id = 1;
+}
+
+// 皮肤数据响应
+message SkinDataResponse {
+    ErrorCode ret = 1;
+    string skin_id = 2;
+    bytes skin_data = 3; // 加密的皮肤数据
+}
+
+// 桌面宠物玩家状态
+message DesktopPetPlayerState {
+    uint64 player_id = 1;
+    string player_name = 2;
+    string pet_skin = 3;
+    float position_x = 4;
+    float position_y = 5;
+    string action = 6;
+    string chat_text = 7;
+}
+
+// 桌面宠物房间状态
+message DesktopPetRoomState {
+    string room_id = 1;
+    repeated DesktopPetPlayerState players = 2;
+}
+
+// 桌面宠物消息ID
+enum DesktopPetMessageId {
+    // 基础消息ID范围
+    DESKTOP_PET_BASE = 0;
+    
+    // 认证相关
+    DESKTOP_PET_AUTH_REQUEST = 1001;
+    DESKTOP_PET_AUTH_RESPONSE = 1002;
+    
+    // 商城相关
+    GET_MARKET_ITEMS_REQUEST = 1003;
+    GET_MARKET_ITEMS_RESPONSE = 1004;
+    
+    // 背包相关
+    GET_BACKPACK_ITEMS_REQUEST = 1005;
+    GET_BACKPACK_ITEMS_RESPONSE = 1006;
+    
+    // 购买相关
+    PURCHASE_REQUEST = 1007;
+    PURCHASE_RESPONSE = 1008;
+    
+    // 装备相关
+    EQUIP_REQUEST = 1009;
+    EQUIP_RESPONSE = 1010;
+    
+    // 皮肤数据相关
+    GET_SKIN_DATA_REQUEST = 1011;
+    GET_SKIN_DATA_RESPONSE = 1012;
+    
+    // 动作同步
+    PET_ACTION_NOTIFICATION = 1013;
+    PET_CHAT_NOTIFICATION = 1014;
+}

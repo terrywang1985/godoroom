@@ -1,0 +1,402 @@
+extends Node
+
+# 预加载生成的 protobuf 文件
+const GameProto = preload("res://proto/game_proto.gd")
+
+# HTTP 和 WebSocket 连接管理器
+signal http_login_success(token)
+signal http_login_failed(error_msg)
+signal connected
+signal disconnected
+signal auth_success(user_info)
+signal auth_failed(error_msg)
+signal room_list_received(rooms)
+signal room_created(room)
+signal room_joined
+signal room_state_updated(room_state)
+
+var websocket: WebSocketPeer
+var http_request: HTTPRequest
+var is_connected: bool = false
+var client_id: String = ""
+var message_serial_no: int = 0
+var session_token: String = ""
+var gateway_url: String = ""
+
+# 服务器配置
+var login_url: String = "http://localhost:8081/login"
+var websocket_url: String = ""  # 将从 gateway_url 动态生成
+
+# 用户信息
+# 消息缓冲区
+var message_buffer: PackedByteArray = PackedByteArray()
+
+# 用户信息
+var user_uid: int = 0
+var user_nickname: String = ""
+var current_room_id: String = ""
+
+func _ready():
+	websocket = WebSocketPeer.new()
+	# 创建HTTP请求节点
+	http_request = HTTPRequest.new()
+	add_child(http_request)
+	http_request.request_completed.connect(_on_http_login_completed)
+
+func _process(_delta):
+	if websocket:
+		websocket.poll()
+		
+		var state = websocket.get_ready_state()
+		if state == WebSocketPeer.STATE_OPEN:
+			if not is_connected:
+				is_connected = true
+				connected.emit()
+				print("WebSocket 连接成功")
+			
+			# 处理接收到的消息
+			while websocket.get_available_packet_count():
+				var packet = websocket.get_packet()
+				message_buffer.append_array(packet)
+				
+				# 处理缓冲区中的完整消息
+				process_message_buffer()
+				
+		elif state == WebSocketPeer.STATE_CLOSED:
+			if is_connected:
+				is_connected = false
+				disconnected.emit()
+				print("WebSocket 连接断开")
+
+# HTTP游客登录
+func guest_login():
+	print("开始HTTP游客登录...")
+	
+	# 准备登录数据
+	var login_data = {
+		"device_id": "godoroom_" + OS.get_unique_id(),
+		"app_id": "desktop_app",
+		"is_guest": true
+	}
+	
+	var json_string = JSON.stringify(login_data)
+	var headers = ["Content-Type: application/json"]
+	
+	print("请求数据: ", json_string)
+	print("正在连接登录服务器: ", login_url)
+	
+	# 发送HTTP请求
+	var error = http_request.request(login_url, headers, HTTPClient.METHOD_POST, json_string)
+	if error != OK:
+		print("HTTP请求失败: ", error)
+		http_login_failed.emit("HTTP请求失败: " + str(error))
+		return false
+	return true
+
+func _on_http_login_completed(result: int, response_code: int, headers: PackedStringArray, body: PackedByteArray):
+	print("HTTP响应状态码: ", response_code)
+	var response_text = body.get_string_from_utf8()
+	print("响应内容: ", response_text)
+	
+	if response_code == 200:
+		var json = JSON.new()
+		var parse_result = json.parse(response_text)
+		if parse_result == OK:
+			var response_data = json.data
+			if response_data.get("success", false):
+				session_token = response_data.get("session_id", "")
+				var username = response_data.get("username", "")
+				gateway_url = response_data.get("gateway_url", "")
+				print("HTTP游客登录成功！用户名: ", username)
+				print("获得令牌: ", session_token)
+				print("获得Gateway地址: ", gateway_url)
+				
+				# 动态配置WebSocket地址
+				if gateway_url != "":
+					# 将gateway地址转换为WebSocket地址
+					if gateway_url.begins_with("ws://") or gateway_url.begins_with("wss://"):
+						websocket_url = gateway_url
+					else:
+						# 如果不是WebSocket格式，则构造WebSocket URL
+						if ":" in gateway_url:
+							var parts = gateway_url.split(":")
+							websocket_url = "ws://" + parts[0] + ":18080/ws"
+						else:
+							websocket_url = "ws://" + gateway_url + ":18080/ws"
+				else:
+					# 如果没有gateway_url，使用默认地址
+					websocket_url = "ws://127.0.0.1:18080/ws"
+					
+				print("使用WebSocket地址: ", websocket_url)
+				http_login_success.emit(session_token)
+				# 继续连接WebSocket
+				connect_to_websocket()
+			else:
+				var error_msg = response_data.get("error", "游客登录失败")
+				print("登录失败: ", error_msg)
+				http_login_failed.emit(error_msg)
+		else:
+			print("解析响应JSON失败")
+			http_login_failed.emit("解析响应JSON失败")
+	else:
+		print("HTTP请求失败，状态码: ", response_code)
+		http_login_failed.emit("HTTP请求失败，状态码: " + str(response_code))
+
+func connect_to_websocket():
+	print("正在连接WebSocket服务器: ", websocket_url)
+	var error = websocket.connect_to_url(websocket_url)
+	if error != OK:
+		print("WebSocket连接失败: ", error)
+		return false
+	return true
+
+func disconnect_from_server():
+	if websocket:
+		websocket.close()
+	is_connected = false
+
+func process_message_buffer():
+	while message_buffer.size() >= 4:
+		# 读取消息长度（小端序）
+		var length = message_buffer[0] | \
+		            (message_buffer[1] << 8) | \
+		            (message_buffer[2] << 16) | \
+		            (message_buffer[3] << 24)
+		
+		# 检查是否有完整消息
+		if message_buffer.size() < 4 + length:
+			break
+		
+		# 提取消息数据
+		var message_data = message_buffer.slice(4, 4 + length)
+		message_buffer = message_buffer.slice(4 + length)
+		
+		# 解析消息
+		_handle_message(message_data)
+
+func _handle_message(data: PackedByteArray):
+	# 使用真正的 Protobuf 消息处理
+	print("收到 Protobuf 消息，字节长度: ", data.size())
+	
+	# 反序列化 Message 包装器
+	var message = GameProto.Message.new()
+	var parse_result = message.from_bytes(data)
+	
+	if parse_result != GameProto.PB_ERR.NO_ERRORS:
+		print("Protobuf 消息解析失败，错误代码: ", parse_result)
+		return
+	
+	var msg_id = message.get_id()
+	var msg_data = message.get_data()  # 这是嵌套的消息数据
+	var client_id = message.get_clientId()
+	var serial_no = message.get_msgSerialNo()
+	
+	print("Protobuf 消息解析成功 - ID: ", msg_id, ", Serial: ", serial_no)
+	
+	# 根据消息ID处理具体的消息类型
+	match msg_id:
+		3:  # AUTH_RESPONSE
+			_handle_auth_response_protobuf(msg_data)
+		7:  # GET_ROOM_LIST_RESPONSE
+			_handle_room_list_response_protobuf(msg_data)
+		9:  # CREATE_ROOM_RESPONSE
+			_handle_create_room_response_protobuf(msg_data)
+		11: # JOIN_ROOM_RESPONSE
+			_handle_join_room_response_protobuf(msg_data)
+		14: # ROOM_STATE_NOTIFICATION
+			_handle_room_state_notification_protobuf(msg_data)
+		15: # GAME_STATE_NOTIFICATION
+			_handle_game_state_notification_protobuf(msg_data)
+		_:
+			print("未知的消息ID: ", msg_id)
+
+func _handle_auth_response_protobuf(data: PackedByteArray):
+	var response = GameProto.AuthResponse.new()
+	var parse_result = response.from_bytes(data)
+	
+	if parse_result != GameProto.PB_ERR.NO_ERRORS:
+		print("AuthResponse 解析失败: ", parse_result)
+		return
+	
+	var ret = response.get_ret()
+	if ret == 0:  # ErrorCode.OK
+		user_uid = response.get_uid()
+		user_nickname = response.get_nickname()
+		client_id = response.get_conn_id()
+		
+		auth_success.emit({
+			"uid": user_uid,
+			"nickname": user_nickname,
+			"is_guest": response.get_is_guest()
+		})
+		print("登录成功: ", user_nickname)
+	else:
+		var error_msg = response.get_error_msg()
+		auth_failed.emit(error_msg)
+		print("登录失败: ", error_msg)
+
+func _handle_room_list_response_protobuf(data: PackedByteArray):
+	var response = GameProto.GetRoomListResponse.new()
+	var parse_result = response.from_bytes(data)
+	
+	if parse_result != GameProto.PB_ERR.NO_ERRORS:
+		print("GetRoomListResponse 解析失败: ", parse_result)
+		return
+	
+	var ret = response.get_ret()
+	if ret == 0:  # ErrorCode.OK
+		var rooms = []
+		var rooms_array = response.get_rooms()
+		for room_proto in rooms_array:
+			var room = {
+				"id": room_proto.get_id(),
+				"name": room_proto.get_name(),
+				"max_players": room_proto.get_max_players(),
+				"current_players": room_proto.get_current_players()
+			}
+			rooms.append(room)
+		room_list_received.emit(rooms)
+		print("收到房间列表，共 ", rooms.size(), " 个房间")
+	else:
+		print("获取房间列表失败")
+
+func _handle_create_room_response_protobuf(data: PackedByteArray):
+	var response = GameProto.CreateRoomResponse.new()
+	var parse_result = response.from_bytes(data)
+	
+	if parse_result != GameProto.PB_ERR.NO_ERRORS:
+		print("CreateRoomResponse 解析失败: ", parse_result)
+		return
+	
+	var ret = response.get_ret()
+	if ret == 0:  # ErrorCode.OK
+		var room_proto = response.get_room()
+		var room = {
+			"id": room_proto.get_id(),
+			"name": room_proto.get_name(),
+			"max_players": room_proto.get_max_players(),
+			"current_players": room_proto.get_current_players()
+		}
+		current_room_id = room["id"]
+		room_created.emit(room)
+		print("房间创建成功: ", room["name"])
+	else:
+		print("创建房间失败")
+
+func _handle_join_room_response_protobuf(data: PackedByteArray):
+	var response = GameProto.JoinRoomResponse.new()
+	var parse_result = response.from_bytes(data)
+	
+	if parse_result != GameProto.PB_ERR.NO_ERRORS:
+		print("JoinRoomResponse 解析失败: ", parse_result)
+		return
+	
+	var ret = response.get_ret()
+	if ret == 0:  # ErrorCode.OK
+		room_joined.emit()
+		print("加入房间成功")
+	else:
+		print("加入房间失败")
+
+func _handle_room_state_notification_protobuf(data: PackedByteArray):
+	# 对于 ROOM_STATE_NOTIFICATION，可能需要使用具体的通知类型
+	# 这里暂时使用简化处理
+	print("收到房间状态通知")
+	# TODO: 实现具体的 ROOM_STATE_NOTIFICATION 反序列化
+
+func _handle_game_state_notification_protobuf(data: PackedByteArray):
+	# 对于 GAME_STATE_NOTIFICATION，可能需要使用具体的通知类型
+	# 这里暂时使用简化处理
+	print("收到游戏状态通知")
+	# TODO: 实现具体的 GAME_STATE_NOTIFICATION 反序列化
+
+func send_message(msg_id: int, data_bytes: PackedByteArray):
+	if not is_connected:
+		print("未连接到服务器")
+		return false
+	
+	message_serial_no += 1
+	
+	# 创建 Protobuf Message 包装器
+	var message = GameProto.Message.new()
+	message.set_clientId(client_id)
+	message.set_msgSerialNo(message_serial_no)
+	message.set_id(msg_id)
+	message.set_data(data_bytes)
+	
+	# 序列化为字节数组
+	var message_bytes = message.to_bytes()
+	
+	# 添加4字节长度头（小端序）
+	var length_bytes = PackedByteArray()
+	var length = message_bytes.size()
+	length_bytes.append(length & 0xFF)
+	length_bytes.append((length >> 8) & 0xFF)
+	length_bytes.append((length >> 16) & 0xFF)
+	length_bytes.append((length >> 24) & 0xFF)
+	
+	# 组合最终数据包
+	var final_packet = length_bytes + message_bytes
+	
+	var error = websocket.send(final_packet)
+	if error != OK:
+		print("发送消息失败: ", error)
+		return false
+	
+	print("发送 Protobuf 消息 - ID: ", msg_id, ", 序列号: ", message_serial_no, ", 数据长度: ", data_bytes.size(), ", 总包长度: ", final_packet.size())
+	return true
+
+# WebSocket认证
+func websocket_auth():
+	if session_token.is_empty():
+		print("没有有效的session_token，无法进行认证")
+		return
+	
+	print("发送WebSocket认证请求...")
+	var request = GameProto.AuthRequest.new()
+	request.set_token(session_token)
+	request.set_device_id("godoroom_" + OS.get_unique_id())
+	request.set_timestamp(Time.get_unix_time_from_system() * 1000)
+	request.set_nonce(str(randi()))
+	request.set_is_guest(true)
+	request.set_app_id("desktop_app")
+	request.set_protocol_version("1.0")
+	request.set_client_version("1.0.0")
+	request.set_device_type("PC")
+	request.set_signature("")
+	
+	# 序列化为字节数组
+	var proto_bytes = request.to_bytes()
+	send_message(2, proto_bytes)  # AUTH_REQUEST = 2
+
+# 获取房间列表
+func get_room_list():
+	var request = GameProto.GetRoomListRequest.new()
+	var proto_bytes = request.to_bytes()
+	send_message(6, proto_bytes)  # GET_ROOM_LIST_REQUEST = 6
+
+# 创建房间
+func create_room(room_name: String):
+	var request = GameProto.CreateRoomRequest.new()
+	request.set_name(room_name)
+	var proto_bytes = request.to_bytes()
+	send_message(8, proto_bytes)  # CREATE_ROOM_REQUEST = 8
+
+# 加入房间
+func join_room(room_id: String):
+	var request = GameProto.JoinRoomRequest.new()
+	request.set_roomId(room_id)
+	current_room_id = room_id
+	var proto_bytes = request.to_bytes()
+	send_message(10, proto_bytes)  # JOIN_ROOM_REQUEST = 10
+
+# 发送玩家位置更新
+func send_player_position(position: Vector2):
+	if current_room_id.is_empty():
+		return
+	
+	# 创建游戏状态通知消息
+	# 这里可能需要使用具体的游戏动作消息
+	# 暂时使用简化处理
+	print("发送玩家位置: ", position)
+	# TODO: 实现具体的位置更新 Protobuf 消息

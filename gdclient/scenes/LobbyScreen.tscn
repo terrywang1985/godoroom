@@ -1,0 +1,99 @@
+[gd_scene load_steps=3 format=3 uid="uid://d3y5z7a9b1c4f"]
+
+[ext_resource type="Script" path="res://scripts/LobbyScreen.gd" id="1_1q3vm"]
+[ext_resource type="PackedScene" path="res://scenes/GameRoom.tscn" id="2_8h9xr"]
+
+[node name="LobbyScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_1q3vm")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = -20.0
+
+[node name="LeftPanel" type="VBoxContainer" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="TitleLabel" type="Label" parent="HBoxContainer/LeftPanel"]
+layout_mode = 2
+text = "房间大厅"
+
+[node name="HSeparator" type="HSeparator" parent="HBoxContainer/LeftPanel"]
+layout_mode = 2
+
+[node name="RoomControlsContainer" type="HBoxContainer" parent="HBoxContainer/LeftPanel"]
+layout_mode = 2
+
+[node name="RefreshButton" type="Button" parent="HBoxContainer/LeftPanel/RoomControlsContainer"]
+layout_mode = 2
+text = "刷新房间列表"
+
+[node name="CreateRoomButton" type="Button" parent="HBoxContainer/LeftPanel/RoomControlsContainer"]
+layout_mode = 2
+text = "创建房间"
+
+[node name="HSeparator2" type="HSeparator" parent="HBoxContainer/LeftPanel"]
+layout_mode = 2
+
+[node name="RoomListLabel" type="Label" parent="HBoxContainer/LeftPanel"]
+layout_mode = 2
+text = "房间列表:"
+
+[node name="RoomListContainer" type="ScrollContainer" parent="HBoxContainer/LeftPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="RoomList" type="VBoxContainer" parent="HBoxContainer/LeftPanel/RoomListContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="VSeparator" type="VSeparator" parent="HBoxContainer"]
+layout_mode = 2
+
+[node name="RightPanel" type="VBoxContainer" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="GameRoom" parent="HBoxContainer/RightPanel" instance=ExtResource("2_8h9xr")]
+layout_mode = 2
+size_flags_vertical = 3
+visible = false
+
+[node name="WaitingLabel" type="Label" parent="HBoxContainer/RightPanel"]
+layout_mode = 2
+text = "选择或创建一个房间开始游戏"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CreateRoomDialog" type="AcceptDialog" parent="."]
+title = "创建房间"
+initial_position = 1
+size = Vector2i(300, 150)
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CreateRoomDialog"]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 292.0
+offset_bottom = 100.0
+
+[node name="Label" type="Label" parent="CreateRoomDialog/VBoxContainer"]
+layout_mode = 2
+text = "房间名称:"
+
+[node name="RoomNameInput" type="LineEdit" parent="CreateRoomDialog/VBoxContainer"]
+layout_mode = 2
+placeholder_text = "输入房间名称"
+
+[connection signal="pressed" from="HBoxContainer/LeftPanel/RoomControlsContainer/RefreshButton" to="." method="_on_refresh_button_pressed"]
+[connection signal="pressed" from="HBoxContainer/LeftPanel/RoomControlsContainer/CreateRoomButton" to="." method="_on_create_room_button_pressed"]
+[connection signal="confirmed" from="CreateRoomDialog" to="." method="_on_create_room_dialog_confirmed"]
