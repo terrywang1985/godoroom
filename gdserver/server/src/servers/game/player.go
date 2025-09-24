@@ -12,6 +12,8 @@ import (
 
 	pb "proto"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -146,13 +148,23 @@ func (p *Player) Run() {
 
 	defer func() {
 		// 清理玩家退出时的资源
-		GlobalManager.DeletePlayer(p.ConnUUID) // 从全局管理器中移除玩家
-		p.cancelFunc()                         // 取消上下文以停止所有goroutine
+		// 1. 先清理battle房间
+		p.cleanupBattleRoom()
+		
+		// 2. 从全局管理器中移除玩家
+		GlobalManager.DeletePlayer(p.ConnUUID)
+		
+		// 3. 取消上下文以停止所有goroutine
+		p.cancelFunc()
+		
+		// 4. 关闭通道
 		close(p.RecvChan)
 		//close(p.SendChan) //为了避免grpc 收到消息，拿到layer后的瞬间，这里关闭了发送管道，导致的panic ,这里就直接不关闭了，等待垃圾回收
+		
+		// 5. 关闭连接
 		defer p.Conn.Close()
 
-		slog.Info("Player exited", "conn_uuid", p.ConnUUID)
+		slog.Info("Player exited and cleaned up", "conn_uuid", p.ConnUUID, "uid", p.Uid)
 	}()
 
 	// 处理接收消息的goroutine
@@ -293,6 +305,49 @@ func (p *Player) SendResponse(srcMsg *pb.Message, responseData []byte) {
 	}
 
 	p.SendMessage(response)
+}
+
+// cleanupBattleRoom 清理玩家所在的battle房间
+func (p *Player) cleanupBattleRoom() {
+	if p.Uid == 0 {
+		return // 未认证的玩家不需要清理
+	}
+
+	slog.Info("Cleaning up battle room for disconnected player", "player_id", p.Uid)
+
+	// 连接到BattleServer清理房间
+	conn, err := grpc.Dial(
+		"127.0.0.1:8693",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+		grpc.WithTimeout(2*time.Second),
+	)
+	if err != nil {
+		slog.Error("Failed to connect to BattleServer for cleanup", "player_id", p.Uid, "error", err)
+		return
+	}
+	defer conn.Close()
+
+	client := pb.NewRoomRpcServiceClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	// 发送离开房间请求
+	leaveRoomRpc := &pb.LeaveRoomRpcRequest{
+		PlayerId: p.Uid,
+	}
+
+	resp, err := client.LeaveRoomRpc(ctx, leaveRoomRpc)
+	if err != nil {
+		slog.Error("Failed to cleanup battle room", "player_id", p.Uid, "error", err)
+		return
+	}
+
+	if resp.Ret == pb.ErrorCode_OK {
+		slog.Info("Successfully cleaned up battle room", "player_id", p.Uid, "room_id", resp.RoomId)
+	} else {
+		slog.Warn("Battle room cleanup returned error", "player_id", p.Uid, "error_code", resp.Ret)
+	}
 }
 
 // HandleAuthRequest 处理认证请求（统一流程：游客和正常用户都有token）

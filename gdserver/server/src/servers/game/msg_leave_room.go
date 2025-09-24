@@ -18,6 +18,8 @@ func (p *Player) HandleLeaveRoomRequest(msg *pb.Message) {
 		return
 	}
 
+	slog.Info("HandleLeaveRoomRequest called", "player_id", p.Uid)
+
 	//暂时连接到固定的 BattleServer地址，后续通过redis做服务发现，获得一个空闲的 BattleServer地址
 	conn, err := grpc.Dial(
 		"127.0.0.1:8693",
@@ -27,6 +29,10 @@ func (p *Player) HandleLeaveRoomRequest(msg *pb.Message) {
 	)
 	if err != nil {
 		log.Printf("连接BattleServer失败: %s, 错误: %v", "127.0.0.1:8693", err)
+		// 即使连接失败，也发送响应
+		p.SendResponse(msg, mustMarshal(&pb.LeaveRoomResponse{
+			Ret: pb.ErrorCode_SERVER_ERROR,
+		}))
 		return
 	}
 
@@ -37,19 +43,31 @@ func (p *Player) HandleLeaveRoomRequest(msg *pb.Message) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	leaveRoomRpc := &pb.LeaveRoomRpcRequest{}
+	// 创建离开房间请求，传递玩家ID
+	leaveRoomRpc := &pb.LeaveRoomRpcRequest{
+		PlayerId: p.Uid,
+		// RoomId 可以从玩家状态中获取，或者从请求中解析
+	}
+
+	slog.Info("Calling LeaveRoomRpc", "player_id", p.Uid)
 
 	resp, err := client.LeaveRoomRpc(ctx, leaveRoomRpc)
 	if err != nil {
 		slog.Error("离开房间RPC调用失败: ", "error", err)
+		// 即使RPC失败，也发送响应
+		p.SendResponse(msg, mustMarshal(&pb.LeaveRoomResponse{
+			Ret: pb.ErrorCode_SERVER_ERROR,
+		}))
 		return
 	}
 
 	if resp.Ret != pb.ErrorCode_OK {
 		slog.Error("离开房间失败，错误码: ", "error_code", resp.Ret)
+	} else {
+		slog.Info("离开房间成功", "player_id", p.Uid, "room_id", resp.RoomId)
 	}
 
-	// 返回新用户信息
+	// 返回响应
 	p.SendResponse(msg, mustMarshal(&pb.LeaveRoomResponse{
 		Ret: resp.Ret,
 	}))

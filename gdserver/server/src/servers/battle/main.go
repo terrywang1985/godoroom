@@ -195,8 +195,53 @@ func (s *BattleServer) JoinRoomRpc(ctx context.Context, req *pb.JoinRoomRpcReque
 }
 
 func (s *BattleServer) LeaveRoomRpc(ctx context.Context, req *pb.LeaveRoomRpcRequest) (*pb.LeaveRoomRpcResponse, error) {
+	slog.Info("LeaveRoomRpc called", "player_id", req.PlayerId)
 
-	return &pb.LeaveRoomRpcResponse{Ret: pb.ErrorCode_OK}, nil
+	s.PlayersMutex.Lock()
+	roomID, exists := s.PlayerInRoom[req.PlayerId]
+	if !exists {
+		s.PlayersMutex.Unlock()
+		slog.Warn("Player not in any room", "player_id", req.PlayerId)
+		return &pb.LeaveRoomRpcResponse{Ret: pb.ErrorCode_INVALID_ROOM}, nil
+	}
+
+	// 从 PlayerInRoom 中移除玩家
+	delete(s.PlayerInRoom, req.PlayerId)
+	s.PlayersMutex.Unlock()
+
+	// 从房间中移除玩家
+	s.RoomsMutex.Lock()
+	room, roomExists := s.BattleRooms[roomID]
+	if roomExists {
+		// 从房间中移除玩家
+		room.RemovePlayer(req.PlayerId)
+		
+		// 如果房间没有玩家了，删除房间
+		if len(room.Players) == 0 {
+			slog.Info("Room is empty, removing room", "room_id", roomID)
+			room.Stop() // 停止房间逻辑
+			delete(s.BattleRooms, roomID)
+		}
+	}
+	s.RoomsMutex.Unlock()
+
+	slog.Info("Player left room successfully", "player_id", req.PlayerId, "room_id", roomID)
+
+	// 返回房间剩余玩家列表
+	var players []*pb.PlayerInitData
+	if roomExists {
+		for playerID := range room.Players {
+			players = append(players, &pb.PlayerInitData{
+				PlayerId: playerID,
+			})
+		}
+	}
+
+	return &pb.LeaveRoomRpcResponse{
+		Ret:     pb.ErrorCode_OK,
+		RoomId:  roomID,
+		Players: players,
+	}, nil
 }
 
 func (s *BattleServer) GetReadyRoomRpc(ctx context.Context, req *pb.GetReadyRpcRequest) (*pb.GetReadyRpcResponse, error) {

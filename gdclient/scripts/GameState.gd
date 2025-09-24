@@ -30,6 +30,13 @@ func _ready():
 	NetworkManager.room_joined.connect(_on_room_joined)
 	NetworkManager.room_state_updated.connect(_on_room_state_updated)
 
+func leave_room():
+	"""离开当前房间"""
+	current_room.clear()
+	players_in_room.clear()
+	set_state(State.LOBBY)
+	print("已离开房间，返回大厅")
+
 func _on_auth_success(user_info: Dictionary):
 	local_player_id = user_info.uid
 	local_player_name = user_info.nickname

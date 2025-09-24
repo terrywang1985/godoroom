@@ -203,6 +203,8 @@ func _handle_message(data: PackedByteArray):
 			_handle_create_room_response_protobuf(msg_data)
 		11: # JOIN_ROOM_RESPONSE
 			_handle_join_room_response_protobuf(msg_data)
+		13: # LEAVE_ROOM_RESPONSE
+			_handle_leave_room_response_protobuf(msg_data)
 		14: # ROOM_STATE_NOTIFICATION
 			_handle_room_state_notification_protobuf(msg_data)
 		15: # GAME_STATE_NOTIFICATION
@@ -298,6 +300,21 @@ func _handle_join_room_response_protobuf(data: PackedByteArray):
 	else:
 		print("加入房间失败")
 
+func _handle_leave_room_response_protobuf(data: PackedByteArray):
+	var response = GameProto.LeaveRoomResponse.new()
+	var parse_result = response.from_bytes(data)
+	
+	if parse_result != GameProto.PB_ERR.NO_ERRORS:
+		print("LeaveRoomResponse 解析失败: ", parse_result)
+		return
+	
+	var ret = response.get_ret()
+	if ret == 0:  # ErrorCode.OK
+		print("离开房间成功")
+		current_room_id = ""
+	else:
+		print("离开房间失败")
+
 func _handle_room_state_notification_protobuf(data: PackedByteArray):
 	# 对于 ROOM_STATE_NOTIFICATION，可能需要使用具体的通知类型
 	# 这里暂时使用简化处理
@@ -389,6 +406,21 @@ func join_room(room_id: String):
 	current_room_id = room_id
 	var proto_bytes = request.to_bytes()
 	send_message(10, proto_bytes)  # JOIN_ROOM_REQUEST = 10
+
+# 离开房间
+func leave_room():
+	if current_room_id.is_empty():
+		print("没有当前房间ID，无法离开房间")
+		return
+	
+	var request = GameProto.LeaveRoomRequest.new()
+	request.set_playerId(str(user_uid))
+	var proto_bytes = request.to_bytes()
+	send_message(12, proto_bytes)  # LEAVE_ROOM_REQUEST = 12
+	print("发送离开房间请求，房间ID: ", current_room_id)
+	
+	# 清空当前房间ID
+	current_room_id = ""
 
 # 发送玩家位置更新
 func send_player_position(position: Vector2):

@@ -1,9 +1,5 @@
 extends Control
 
-@onready var create_room_dialog = $CreateRoomDialog
-@onready var room_name_input = $CreateRoomDialog/VBoxContainer/RoomNameInput
-
-# 背景节点
 @onready var battle_bg = $BackgroundContainer/BattleBG
 @onready var draw_bg = $BackgroundContainer/DrawBG
 @onready var school_bg = $BackgroundContainer/SchoolBG
@@ -79,9 +75,27 @@ func _switch_to_tab(tab_name: String):
 
 # 创建房间按钮事件
 func _on_create_room_button_pressed():
-	create_room_dialog.popup_centered()
-	room_name_input.text = ""
-	room_name_input.grab_focus()
+	# 自动生成房间名，无需用户输入
+	var auto_room_name = _generate_room_name()
+	print("自动创建房间: ", auto_room_name)
+	NetworkManager.create_room(auto_room_name)
+
+# 自动生成房间名
+func _generate_room_name() -> String:
+	# 获取当前时间用于生成唯一房间名
+	var time = Time.get_unix_time_from_system()
+	var room_names = [
+		"决战之巅",
+		"王者对决", 
+		"巅峰较量",
+		"荣耀战场",
+		"传说竞技场",
+		"无敌战神",
+		"至尊对战"
+	]
+	# 随机选择一个酷炫的房间名
+	var random_name = room_names[randi() % room_names.size()]
+	return random_name + "_%d" % (int(time) % 10000)
 
 # 房间列表按钮事件  
 func _on_refresh_button_pressed():
@@ -113,14 +127,6 @@ func _on_room_list_received(rooms):
 	print("收到房间列表: ", rooms.size(), "个房间")
 	# TODO: 显示房间列表界面
 
-func _on_create_room_dialog_confirmed():
-	var room_name = room_name_input.text.strip_edges()
-	if room_name.is_empty():
-		return
-	
-	print("创建房间: ", room_name)
-	NetworkManager.create_room(room_name)
-
 func _on_room_created(room: Dictionary):
 	print("房间创建成功，进入房间: ", room.get("name", ""))
 	_show_game_room()
@@ -130,9 +136,9 @@ func _on_room_joined():
 	_show_game_room()
 
 func _show_game_room():
-	print("切换到卡牌游戏房间")
-	# 直接切换到卡牌游戏场景
-	get_tree().change_scene_to_file("res://scenes/CardGameRoom.tscn")
+	print("切换到游戏房间（可移动状态）")
+	# 切换到可以移动的游戏房间场景
+	get_tree().change_scene_to_file("res://scenes/GameRoom.tscn")
 
 func _on_player_joined(player_info: Dictionary):
 	print("玩家加入房间: ", player_info.name)

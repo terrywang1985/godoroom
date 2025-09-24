@@ -17,6 +17,9 @@ func _ready():
 	GameStateManager.player_joined.connect(_on_player_joined)
 	GameStateManager.player_left.connect(_on_player_left)
 	GameStateManager.player_position_updated.connect(_on_player_position_updated)
+	
+	# 自动设置房间
+	setup_room()
 
 func setup_room():
 	# 设置房间信息
@@ -113,11 +116,16 @@ func _update_player_count():
 	player_count_label.text = "玩家数量: %d/4" % total_players
 
 func _on_leave_button_pressed():
-	# 离开房间逻辑
+	print("离开房间")
 	_cleanup_room()
-	GameStateManager.set_state(GameStateManager.State.LOBBY)
-	visible = false
-	get_parent().get_node("WaitingLabel").visible = true
+	
+	# 通知网络管理器和状态管理器
+	if NetworkManager.has_method("leave_room"):
+		NetworkManager.leave_room()
+	GameStateManager.leave_room()
+	
+	# 返回大厅界面
+	get_tree().change_scene_to_file("res://scenes/LobbyScreen.tscn")
 
 func _cleanup_room():
 	# 清理玩家节点
@@ -128,3 +136,5 @@ func _cleanup_room():
 	for player_node in remote_players.values():
 		player_node.queue_free()
 	remote_players.clear()
+	
+	print("房间清理完成")

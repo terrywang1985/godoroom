@@ -59,8 +59,34 @@ func (room *BattleRoom) AddPlayer(playerID uint64, name string) {
 		Name:     name,
 	}
 
-	//
+	slog.Info("Player added to battle room", "room_id", room.BattleID, "player_id", playerID, "player_name", name)
+}
 
+// RemovePlayer 从战斗房间移除玩家
+func (room *BattleRoom) RemovePlayer(playerID uint64) {
+	room.PlayersMutex.Lock()
+	defer room.PlayersMutex.Unlock()
+
+	if _, exists := room.Players[playerID]; exists {
+		delete(room.Players, playerID)
+		delete(room.ReadyPlayers, playerID) // 同时移除准备状态
+		slog.Info("Player removed from battle room", "room_id", room.BattleID, "player_id", playerID)
+	}
+}
+
+// Stop 停止战斗房间
+func (room *BattleRoom) Stop() {
+	room.PlayersMutex.Lock()
+	defer room.PlayersMutex.Unlock()
+
+	if room.Game != nil {
+		room.Game.EndGame()
+	}
+	
+	// 关闭命令通道（如果需要的话）
+	// close(room.CmdChan) // 注意：需要确保没有其他goroutine在写入
+	
+	slog.Info("Battle room stopped", "room_id", room.BattleID)
 }
 
 func (room *BattleRoom) SetPlayerReady(playerID uint64) {
