@@ -1,7 +1,14 @@
-[gd_scene load_steps=3 format=3 uid="uid://d3y5z7a9b1c4f"]
+[gd_scene load_steps=10 format=3 uid="uid://d3y5z7a9b1c4f"]
 
 [ext_resource type="Script" path="res://scripts/LobbyScreen.gd" id="1_1q3vm"]
-[ext_resource type="PackedScene" path="res://scenes/GameRoom.tscn" id="2_8h9xr"]
+[ext_resource type="Texture2D" path="res://assets/backgrounds/battle_bg.png" id="2_battle_bg"]
+[ext_resource type="Texture2D" path="res://assets/backgrounds/draw_bg.png" id="3_draw_bg"]
+[ext_resource type="Texture2D" path="res://assets/backgrounds/school_bg.png" id="4_school_bg"]
+[ext_resource type="Texture2D" path="res://assets/backgrounds/my_bg.png" id="5_my_bg"]
+[ext_resource type="Texture2D" path="res://assets/button_backgrounds/battle_btn.png" id="6_battle_btn"]
+[ext_resource type="Texture2D" path="res://assets/button_backgrounds/drawcard_btn.png" id="7_drawcard_btn"]
+[ext_resource type="Texture2D" path="res://assets/button_backgrounds/school_btn.png" id="8_school_btn"]
+[ext_resource type="Texture2D" path="res://assets/button_backgrounds/mypage_btn.png" id="9_mypage_btn"]
 
 [node name="LobbyScreen" type="Control"]
 layout_mode = 3
@@ -10,90 +17,235 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource("1_1q3vm")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="."]
+[node name="BackgroundContainer" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 20.0
-offset_top = 20.0
-offset_right = -20.0
-offset_bottom = -20.0
 
-[node name="LeftPanel" type="VBoxContainer" parent="HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
+[node name="BattleBG" type="TextureRect" parent="BackgroundContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+texture = ExtResource("2_battle_bg")
+expand_mode = 1
 
-[node name="TitleLabel" type="Label" parent="HBoxContainer/LeftPanel"]
-layout_mode = 2
-text = "房间大厅"
-
-[node name="HSeparator" type="HSeparator" parent="HBoxContainer/LeftPanel"]
-layout_mode = 2
-
-[node name="RoomControlsContainer" type="HBoxContainer" parent="HBoxContainer/LeftPanel"]
-layout_mode = 2
-
-[node name="RefreshButton" type="Button" parent="HBoxContainer/LeftPanel/RoomControlsContainer"]
-layout_mode = 2
-text = "刷新房间列表"
-
-[node name="CreateRoomButton" type="Button" parent="HBoxContainer/LeftPanel/RoomControlsContainer"]
-layout_mode = 2
-text = "创建房间"
-
-[node name="HSeparator2" type="HSeparator" parent="HBoxContainer/LeftPanel"]
-layout_mode = 2
-
-[node name="RoomListLabel" type="Label" parent="HBoxContainer/LeftPanel"]
-layout_mode = 2
-text = "房间列表:"
-
-[node name="RoomListContainer" type="ScrollContainer" parent="HBoxContainer/LeftPanel"]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="RoomList" type="VBoxContainer" parent="HBoxContainer/LeftPanel/RoomListContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="VSeparator" type="VSeparator" parent="HBoxContainer"]
-layout_mode = 2
-
-[node name="RightPanel" type="VBoxContainer" parent="HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="GameRoom" parent="HBoxContainer/RightPanel" instance=ExtResource("2_8h9xr")]
-layout_mode = 2
-size_flags_vertical = 3
+[node name="DrawBG" type="TextureRect" parent="BackgroundContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+texture = ExtResource("3_draw_bg")
+expand_mode = 1
 visible = false
 
-[node name="WaitingLabel" type="Label" parent="HBoxContainer/RightPanel"]
+[node name="SchoolBG" type="TextureRect" parent="BackgroundContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+texture = ExtResource("4_school_bg")
+expand_mode = 1
+visible = false
+
+[node name="MyBG" type="TextureRect" parent="BackgroundContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+texture = ExtResource("5_my_bg")
+expand_mode = 1
+visible = false
+
+[node name="ContentContainer" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="BattleContent" type="Control" parent="ContentContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="BattleMenu" type="VBoxContainer" parent="ContentContainer/BattleContent"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -150.0
+offset_right = 200.0
+offset_bottom = 150.0
+
+[node name="CreateRoomButton" type="Button" parent="ContentContainer/BattleContent/BattleMenu"]
 layout_mode = 2
-text = "选择或创建一个房间开始游戏"
+custom_minimum_size = Vector2(400, 80)
+theme_override_font_sizes/font_size = 28
+text = "创建房间"
+
+[node name="Spacer1" type="Control" parent="ContentContainer/BattleContent/BattleMenu"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 20)
+
+[node name="RefreshButton" type="Button" parent="ContentContainer/BattleContent/BattleMenu"]
+layout_mode = 2
+custom_minimum_size = Vector2(400, 80)
+theme_override_font_sizes/font_size = 28
+text = "房间列表"
+
+[node name="Spacer2" type="Control" parent="ContentContainer/BattleContent/BattleMenu"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 20)
+
+[node name="QuickMatchButton" type="Button" parent="ContentContainer/BattleContent/BattleMenu"]
+layout_mode = 2
+custom_minimum_size = Vector2(400, 80)
+theme_override_font_sizes/font_size = 28
+text = "立即匹配"
+
+[node name="DrawContent" type="Control" parent="ContentContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+visible = false
+
+[node name="DrawLabel" type="Label" parent="ContentContainer/DrawContent"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -100.0
+offset_top = -25.0
+offset_right = 100.0
+offset_bottom = 25.0
+theme_override_font_sizes/font_size = 48
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+text = "抽卡功能"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="SchoolContent" type="Control" parent="ContentContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+visible = false
+
+[node name="SchoolLabel" type="Label" parent="ContentContainer/SchoolContent"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -100.0
+offset_top = -25.0
+offset_right = 100.0
+offset_bottom = 25.0
+theme_override_font_sizes/font_size = 48
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+text = "学院功能"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="MyContent" type="Control" parent="ContentContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+visible = false
+
+[node name="MyLabel" type="Label" parent="ContentContainer/MyContent"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -100.0
+offset_top = -25.0
+offset_right = 100.0
+offset_bottom = 25.0
+theme_override_font_sizes/font_size = 48
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+text = "个人信息"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TabBar" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -120.0
+
+[node name="BattleTab" type="TextureButton" parent="TabBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 120)
+texture_normal = ExtResource("6_battle_btn")
+expand_mode = 2
+stretch_mode = 5
+
+[node name="DrawTab" type="TextureButton" parent="TabBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 120)
+texture_normal = ExtResource("7_drawcard_btn")
+expand_mode = 2
+stretch_mode = 5
+
+[node name="SchoolTab" type="TextureButton" parent="TabBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 120)
+texture_normal = ExtResource("8_school_btn")
+expand_mode = 2
+stretch_mode = 5
+
+[node name="MyTab" type="TextureButton" parent="TabBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 120)
+texture_normal = ExtResource("9_mypage_btn")
+expand_mode = 2
+stretch_mode = 5
 
 [node name="CreateRoomDialog" type="AcceptDialog" parent="."]
 title = "创建房间"
 initial_position = 1
-size = Vector2i(300, 150)
+size = Vector2i(600, 300)
 
 [node name="VBoxContainer" type="VBoxContainer" parent="CreateRoomDialog"]
 offset_left = 8.0
 offset_top = 8.0
-offset_right = 292.0
-offset_bottom = 100.0
+offset_right = 592.0
+offset_bottom = 250.0
 
 [node name="Label" type="Label" parent="CreateRoomDialog/VBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 36
 text = "房间名称:"
 
 [node name="RoomNameInput" type="LineEdit" parent="CreateRoomDialog/VBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 32
 placeholder_text = "输入房间名称"
 
-[connection signal="pressed" from="HBoxContainer/LeftPanel/RoomControlsContainer/RefreshButton" to="." method="_on_refresh_button_pressed"]
-[connection signal="pressed" from="HBoxContainer/LeftPanel/RoomControlsContainer/CreateRoomButton" to="." method="_on_create_room_button_pressed"]
+[connection signal="pressed" from="ContentContainer/BattleContent/BattleMenu/CreateRoomButton" to="." method="_on_create_room_button_pressed"]
+[connection signal="pressed" from="ContentContainer/BattleContent/BattleMenu/RefreshButton" to="." method="_on_refresh_button_pressed"]
+[connection signal="pressed" from="ContentContainer/BattleContent/BattleMenu/QuickMatchButton" to="." method="_on_quick_match_button_pressed"]
+[connection signal="pressed" from="TabBar/BattleTab" to="." method="_on_battle_tab_pressed"]
+[connection signal="pressed" from="TabBar/DrawTab" to="." method="_on_draw_tab_pressed"]
+[connection signal="pressed" from="TabBar/SchoolTab" to="." method="_on_school_tab_pressed"]
+[connection signal="pressed" from="TabBar/MyTab" to="." method="_on_my_tab_pressed"]
 [connection signal="confirmed" from="CreateRoomDialog" to="." method="_on_create_room_dialog_confirmed"]

@@ -1,12 +1,22 @@
 extends Control
 
-@onready var room_list = $HBoxContainer/LeftPanel/RoomListContainer/RoomList
-@onready var game_room = $HBoxContainer/RightPanel/GameRoom
-@onready var waiting_label = $HBoxContainer/RightPanel/WaitingLabel
 @onready var create_room_dialog = $CreateRoomDialog
 @onready var room_name_input = $CreateRoomDialog/VBoxContainer/RoomNameInput
 
+# 背景节点
+@onready var battle_bg = $BackgroundContainer/BattleBG
+@onready var draw_bg = $BackgroundContainer/DrawBG
+@onready var school_bg = $BackgroundContainer/SchoolBG
+@onready var my_bg = $BackgroundContainer/MyBG
+
+# 内容节点
+@onready var battle_content = $ContentContainer/BattleContent
+@onready var draw_content = $ContentContainer/DrawContent
+@onready var school_content = $ContentContainer/SchoolContent
+@onready var my_content = $ContentContainer/MyContent
+
 var current_rooms = []
+var current_tab = "battle"  # 当前选中的标签页
 
 func _ready():
 	# 连接网络管理器的信号
@@ -17,53 +27,91 @@ func _ready():
 	# 连接游戏状态管理器的信号
 	GameStateManager.player_joined.connect(_on_player_joined)
 	
-	# 自动刷新房间列表
-	_refresh_room_list()
+	# 默认显示对战页面
+	_switch_to_tab("battle")
+	print("大厅界面已加载")
 
+func _switch_to_tab(tab_name: String):
+	current_tab = tab_name
+	print("切换到标签页: ", tab_name)
+	
+	# 隐藏所有背景和内容
+	if battle_bg:
+		battle_bg.visible = false
+	if draw_bg:
+		draw_bg.visible = false
+	if school_bg:
+		school_bg.visible = false
+	if my_bg:
+		my_bg.visible = false
+	
+	if battle_content:
+		battle_content.visible = false
+	if draw_content:
+		draw_content.visible = false
+	if school_content:
+		school_content.visible = false
+	if my_content:
+		my_content.visible = false
+	
+	# 显示对应的背景和内容
+	match tab_name:
+		"battle":
+			if battle_bg:
+				battle_bg.visible = true
+			if battle_content:
+				battle_content.visible = true
+		"draw":
+			if draw_bg:
+				draw_bg.visible = true
+			if draw_content:
+				draw_content.visible = true
+		"school":
+			if school_bg:
+				school_bg.visible = true
+			if school_content:
+				school_content.visible = true
+		"my":
+			if my_bg:
+				my_bg.visible = true
+			if my_content:
+				my_content.visible = true
+
+# 创建房间按钮事件
+func _on_create_room_button_pressed():
+	create_room_dialog.popup_centered()
+	room_name_input.text = ""
+	room_name_input.grab_focus()
+
+# 房间列表按钮事件  
 func _on_refresh_button_pressed():
 	_refresh_room_list()
+
+# 标签页按钮事件
+func _on_battle_tab_pressed():
+	_switch_to_tab("battle")
+
+func _on_draw_tab_pressed():
+	_switch_to_tab("draw")
+
+func _on_school_tab_pressed():
+	_switch_to_tab("school")
+
+func _on_my_tab_pressed():
+	_switch_to_tab("my")
+
+# 其他按钮事件
+func _on_quick_match_button_pressed():
+	print("开始快速匹配")
+	# TODO: 实现快速匹配功能
 
 func _refresh_room_list():
 	NetworkManager.get_room_list()
 
 func _on_room_list_received(rooms):
 	current_rooms = rooms
-	_update_room_list_ui()
-
-func _update_room_list_ui():
-	# 清空现有的房间列表
-	for child in room_list.get_children():
-		child.queue_free()
-	
-	# 添加房间项
-	for room in current_rooms:
-		var room_item = _create_room_item(room)
-		room_list.add_child(room_item)
-
-func _create_room_item(room: Dictionary) -> Control:
-	var container = HBoxContainer.new()
-	
-	var info_label = Label.new()
-	info_label.text = "%s (%d/%d)" % [room.get("name", ""), room.get("current_players", 0), room.get("max_players", 0)]
-	info_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	container.add_child(info_label)
-	
-	var join_button = Button.new()
-	join_button.text = "加入"
-	join_button.disabled = room.get("current_players", 0) >= room.get("max_players", 1)
-	join_button.pressed.connect(_on_join_room_pressed.bind(room.get("id", "")))
-	container.add_child(join_button)
-	
-	return container
-
-func _on_join_room_pressed(room_id: String):
-	print("尝试加入房间: ", room_id)
-	NetworkManager.join_room(room_id)
-
-func _on_create_room_button_pressed():
-	create_room_dialog.popup_centered()
-	room_name_input.text = ""
-	room_name_input.grab_focus()
+	print("收到房间列表: ", rooms.size(), "个房间")
+	# TODO: 显示房间列表界面
 
 func _on_create_room_dialog_confirmed():
 	var room_name = room_name_input.text.strip_edges()
@@ -82,9 +130,9 @@ func _on_room_joined():
 	_show_game_room()
 
 func _show_game_room():
-	waiting_label.visible = false
-	game_room.visible = true
-	game_room.setup_room()
+	print("切换到卡牌游戏房间")
+	# 直接切换到卡牌游戏场景
+	get_tree().change_scene_to_file("res://scenes/CardGameRoom.tscn")
 
 func _on_player_joined(player_info: Dictionary):
 	print("玩家加入房间: ", player_info.name)

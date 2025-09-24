@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="GodoRoom"
+config/name="GodoRoom Card Game"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.4")
 
@@ -18,6 +18,14 @@ config/features=PackedStringArray("4.4")
 
 NetworkManager="*res://scripts/NetworkManager.gd"
 GameStateManager="*res://scripts/GameState.gd"
+
+[display]
+
+window/size/viewport_width=1080
+window/size/viewport_height=1920
+window/size/window_width_override=540
+window/size/window_height_override=960
+window/stretch/mode="canvas_items"
 
 [input]
 
