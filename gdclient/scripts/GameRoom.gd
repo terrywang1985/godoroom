@@ -29,6 +29,9 @@ func _ready():
 	
 	# 自动设置房间
 	setup_room()
+	
+	# 检查当前房间中已有的玩家（防止错过之前的player_joined信号）
+	_check_existing_players()
 
 func setup_room():
 	# 设置房间信息（符合简洁UI偏好）
@@ -63,6 +66,23 @@ func _create_local_player():
 	local_player_node = _create_player_node(GameStateManager.local_player_id, GameStateManager.local_player_name, Color.GREEN)
 	local_player_node.position = Vector2(400, 300)  # 默认位置
 	players_container.add_child(local_player_node)
+
+func _check_existing_players():
+	"""检查当前房间中已有的玩家并创建它们的节点"""
+	print("检查已有玩家：房间中共有", GameStateManager.players_in_room.size(), "个玩家")
+	for player_id in GameStateManager.players_in_room:
+		var player_info = GameStateManager.players_in_room[player_id]
+		print("检查玩家ID=", player_id, "，名称=", player_info.name, "，是否本地玩家=", (player_id == GameStateManager.local_player_id))
+		
+		if player_id != GameStateManager.local_player_id:
+			# 为已存在的远程玩家创建节点
+			print("为已存在的远程玩家创建节点：ID=", player_id)
+			var player_node = _create_player_node(player_id, player_info.name, Color.BLUE)
+			player_node.position = player_info.position
+			remote_players[player_id] = player_node
+			players_container.add_child(player_node)
+	
+	_update_player_count()
 
 func _create_player_node(player_id: int, player_name: String, color: Color) -> Node2D:
 	# 使用新的动画玩家场景
@@ -126,8 +146,13 @@ func _on_player_joined(player_info: Dictionary):
 	var player_name = player_info.name
 	var position = player_info.position
 	
+	print("GameRoom收到player_joined信号：ID=", player_id, "，名称=", player_name, "，本地玩家ID=", GameStateManager.local_player_id)
+	
 	if player_id == GameStateManager.local_player_id:
+		print("跳过本地玩家，不创建远程节点")
 		return  # 本地玩家已经创建
+	
+	print("创建远程玩家节点：ID=", player_id, "，名称=", player_name)
 	
 	# 创建远程玩家
 	var player_node = _create_player_node(player_id, player_name, Color.BLUE)
@@ -138,10 +163,14 @@ func _on_player_joined(player_info: Dictionary):
 	_update_player_count()
 
 func _on_player_left(player_id: int):
+	print("GameRoom收到player_left信号：ID=", player_id, "，在remote_players中吗：", (player_id in remote_players))
 	if player_id in remote_players:
+		print("删除远程玩家节点：ID=", player_id)
 		remote_players[player_id].queue_free()
 		remote_players.erase(player_id)
 		_update_player_count()
+	else:
+		print("警告：试图删除不存在的远程玩家：ID=", player_id)
 
 func _on_player_position_updated(player_id: int, position: Vector2):
 	if player_id in remote_players:

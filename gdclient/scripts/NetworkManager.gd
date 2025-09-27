@@ -325,10 +325,37 @@ func _handle_leave_room_response_protobuf(data: PackedByteArray):
 		print("离开房间失败")
 
 func _handle_room_state_notification_protobuf(data: PackedByteArray):
-	# 对于 ROOM_STATE_NOTIFICATION，可能需要使用具体的通知类型
-	# 这里暂时使用简化处理
-	print("收到房间状态通知")
-	# TODO: 实现具体的 ROOM_STATE_NOTIFICATION 反序列化
+	# 解析房间状态通知
+	# 这里需要解析 RoomDetailNotify 消息
+	# 由于Godot的protobuf实现可能不支持嵌套的service消息，我们简化处理
+	# 假设服务器直接发送RoomDetail数据
+	var room_detail = GameProto.RoomDetail.new()
+	var result = room_detail.from_bytes(data)
+	
+	if result == GameProto.PB_ERR.NO_ERRORS:
+		var room_info = {
+			"room": {
+				"id": room_detail.get_room().get_id(),
+				"name": room_detail.get_room().get_name(),
+				"max_players": room_detail.get_room().get_max_players(),
+				"current_players": room_detail.get_room().get_current_players()
+			},
+			"players": []
+		}
+		
+		# 解析当前玩家列表
+		for player in room_detail.get_current_players():
+			room_info["players"].append({
+				"uid": player.get_uid(),
+				"name": player.get_name()
+			})
+		
+		print("收到房间状态通知: 房间ID=", room_info.room.id, ", 玩家数量=", room_info.players.size())
+		
+		# 发出信号通知游戏房间更新玩家列表
+		room_state_updated.emit(room_info)
+	else:
+		print("解析房间状态通知失败: ", result)
 
 func _handle_game_state_notification_protobuf(data: PackedByteArray):
 	# 对于 GAME_STATE_NOTIFICATION，可能需要使用具体的通知类型

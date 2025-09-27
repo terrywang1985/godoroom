@@ -192,7 +192,7 @@ func (room *BattleRoom) BroadcastNotifyGameState() {
 }
 
 func (room *BattleRoom) NotifyRoomStatus(playerID uint64, msg *pb.RoomDetail) {
-	gameServerAddr := "127.0.0.1:" + fmt.Sprintf(":%d", rpc.GameServiceGRPCPort)
+	gameServerAddr := fmt.Sprintf("127.0.0.1:%d", rpc.GameServiceGRPCPort)
 	conn, err := grpc.Dial(gameServerAddr, grpc.WithInsecure())
 	if err != nil {
 		slog.Error("Failed to connect to game server", "addr", gameServerAddr, "error", err)
@@ -223,7 +223,7 @@ func (room *BattleRoom) NotifyGameState(playerId uint64, msg *pb.GameStateNotify
 	//	return
 	//}
 
-	gameServerAddr := "127.0.0.1:" + fmt.Sprintf(":%d", rpc.GameServiceGRPCPort)
+	gameServerAddr := fmt.Sprintf("127.0.0.1:%d", rpc.GameServiceGRPCPort)
 	// 连接GameServer
 	conn, err := grpc.Dial(gameServerAddr, grpc.WithInsecure())
 	if err != nil {

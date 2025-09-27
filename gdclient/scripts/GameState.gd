@@ -53,15 +53,37 @@ func _on_room_joined():
 
 func _on_room_state_updated(room_state: Dictionary):
 	current_room = room_state.get("room", {})
-	players_in_room.clear()
 	
 	var players_array = room_state.get("players", [])
+	print("房间状态更新：玩家数组长度=", players_array.size(), "，本地玩家ID=", local_player_id)
+	
+	# 创建新的玩家列表
+	var new_players = {}
 	for player_dict in players_array:
-		add_player_to_room(
-			player_dict.get("uid", 0), 
-			player_dict.get("name", ""), 
-			player_dict.get("position", Vector2.ZERO)
-		)
+		var player_id = player_dict.get("uid", 0)
+		var player_name = player_dict.get("name", "")
+		var player_info = {
+			"id": player_id,
+			"name": player_name,
+			"position": player_dict.get("position", Vector2.ZERO)
+		}
+		new_players[player_id] = player_info
+		print("新房间状态中的玩家：ID=", player_id, "，名称=", player_name)
+	
+	# 检查哪些玩家离开了
+	for old_player_id in players_in_room:
+		if old_player_id not in new_players:
+			print("玩家离开房间：ID=", old_player_id, "，名称=", players_in_room[old_player_id].name)
+			player_left.emit(old_player_id)
+	
+	# 检查哪些玩家是新加入的
+	for new_player_id in new_players:
+		if new_player_id not in players_in_room:
+			print("新玩家加入房间：ID=", new_player_id, "，名称=", new_players[new_player_id].name)
+			player_joined.emit(new_players[new_player_id])
+	
+	# 更新玩家列表
+	players_in_room = new_players
 
 func set_state(new_state: State):
 	current_state = new_state
@@ -74,6 +96,7 @@ func add_player_to_room(player_id: int, player_name: String, position: Vector2):
 		"position": position
 	}
 	players_in_room[player_id] = player_info
+	print("添加玩家到房间：ID=", player_id, "，名称=", player_name, "，发送player_joined信号")
 	player_joined.emit(player_info)
 
 func remove_player_from_room(player_id: int):

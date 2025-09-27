@@ -50,7 +50,7 @@ func (s *GameGRPCService) RoomStatusNotifyRpc(ctx context.Context, req *pb.RoomD
 		Id:          pb.MessageId_ROOM_STATE_NOTIFICATION,
 		MsgSerialNo: -1,
 		ClientId:    "",
-		Data:        mustMarshal(req),
+		Data:        mustMarshal(req.Room),
 	}
 
 	player.SendMessage(noti)

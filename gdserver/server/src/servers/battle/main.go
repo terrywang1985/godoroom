@@ -178,6 +178,9 @@ func (s *BattleServer) JoinRoomRpc(ctx context.Context, req *pb.JoinRoomRpcReque
 
 	slog.Info("Player joined room", "room_id", req.RoomId, "player", req.Player.PlayerId)
 
+	// 广播房间状态给所有玩家（包括新加入的玩家）
+	room.BroadcastRoomStatus()
+
 	// 返回当前房间玩家列表
 	playerList := make([]*pb.PlayerInitData, 0, len(room.Players))
 	for playerID := range room.Players {
@@ -215,6 +218,12 @@ func (s *BattleServer) LeaveRoomRpc(ctx context.Context, req *pb.LeaveRoomRpcReq
 	if roomExists {
 		// 从房间中移除玩家
 		room.RemovePlayer(req.PlayerId)
+		
+		// 向房间内剩余玩家广播房间状态更新
+		if len(room.Players) > 0 {
+			room.BroadcastRoomStatus()
+			slog.Info("Broadcasted room status after player left", "room_id", roomID, "remaining_players", len(room.Players))
+		}
 		
 		// 如果房间没有玩家了，删除房间
 		if len(room.Players) == 0 {
