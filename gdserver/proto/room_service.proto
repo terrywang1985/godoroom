@@ -14,7 +14,7 @@ message CreateRoomRpcRequest {
 
 message CreateRoomRpcResponse {
   game.ErrorCode ret = 1;
-  string room_id = 2;
+  game.RoomDetail room = 2;
 }
 
 message JoinRoomRpcRequest {
@@ -24,8 +24,7 @@ message JoinRoomRpcRequest {
 
 message JoinRoomRpcResponse {
   game.ErrorCode ret = 1;
-  string room_id = 2;
-  repeated game.PlayerInitData players = 3; // 房间内的玩家列表
+  game.RoomDetail room = 2;
 }
 
 message LeaveRoomRpcRequest {

@@ -35,12 +35,16 @@ func (p *Player) HandleCreateRoomRequest(msg *pb.Message) {
 		log.Printf("连接BattleServer失败: %s, 错误: %v", "127.0.0.1:8693", err)
 		slog.Error("Failed to connect to BattleServer", "error", err)
 		// 即使连接失败，也应该给客户端发送响应
-		p.SendResponse(msg, mustMarshal(&pb.CreateRoomResponse{
-			Ret: pb.ErrorCode_SERVER_ERROR,
+		// 创建RoomDetail对象
+		roomDetail := &pb.RoomDetail{
 			Room: &pb.Room{
 				Id:   "",
 				Name: req.GetName(),
 			},
+		}
+		p.SendResponse(msg, mustMarshal(&pb.CreateRoomResponse{
+			Ret:         pb.ErrorCode_SERVER_ERROR,
+			RoomDetail: roomDetail,
 		}))
 		return
 	}
@@ -68,26 +72,36 @@ func (p *Player) HandleCreateRoomRequest(msg *pb.Message) {
 		// 即使RPC调用失败，也应该给客户端发送响应
 		p.SendResponse(msg, mustMarshal(&pb.CreateRoomResponse{
 			Ret: pb.ErrorCode_SERVER_ERROR,
-			Room: &pb.Room{
-				Id:   "",
-				Name: req.GetName(),
+			RoomDetail: &pb.RoomDetail{
+				Room: &pb.Room{
+					Id:   "",
+					Name: req.GetName(),
+				},
 			},
 		}))
 		return
 	}
 
-	slog.Info("CreateRoomRpc response", "player_id", p.Uid, "ret", resp.GetRet(), "room_id", resp.GetRoomId())
+	// 修复：使用新的RoomDetail字段访问方式
+	roomId := ""
+	if resp.GetRoom() != nil && resp.GetRoom().GetRoom() != nil {
+		roomId = resp.GetRoom().GetRoom().GetId()
+	}
+
+	slog.Info("CreateRoomRpc response", "player_id", p.Uid, "ret", resp.GetRet(), "room_id", roomId)
 
 	if resp.Ret != pb.ErrorCode_OK {
 		slog.Error("创建房间失败，错误码: ", "error_code", resp.Ret)
+	} else {
+		// 创建房间成功，设置当前房间ID
+		p.CurrentRoomID = roomId
+		slog.Info("玩家成功创建房间", "player_id", p.Uid, "room_id", p.CurrentRoomID)
 	}
 
-	// 返回新用户信息
+	// 返回响应
+	// 直接使用RPC返回的RoomDetail，而不是自己构造
 	p.SendResponse(msg, mustMarshal(&pb.CreateRoomResponse{
-		Ret: resp.Ret,
-		Room: &pb.Room{
-			Id:   resp.RoomId,
-			Name: req.GetName(), // 使用客户端提供的房间名称
-		},
+		Ret:         resp.Ret,
+		RoomDetail: resp.GetRoom(), // 直接使用RPC返回的RoomDetail
 	}))
 }

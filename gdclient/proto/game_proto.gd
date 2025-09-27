@@ -1072,9 +1072,110 @@ enum ActionType {
 	ACTION_UNKNOWN = 0,
 	PLACE_CARD = 1,
 	SKIP_TURN = 2,
-	AUTO_CHAT = 3
+	AUTO_CHAT = 3,
+	SURRENDER = 4,
+	CHAR_MOVE = 5
 }
 
+class CharacterMoveAction:
+	func _init():
+		var service
+		
+		__from_x = PBField.new("from_x", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 1, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __from_x
+		data[__from_x.tag] = service
+		
+		__from_y = PBField.new("from_y", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __from_y
+		data[__from_y.tag] = service
+		
+		__to_x = PBField.new("to_x", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __to_x
+		data[__to_x.tag] = service
+		
+		__to_y = PBField.new("to_y", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __to_y
+		data[__to_y.tag] = service
+		
+	var data = {}
+	
+	var __from_x: PBField
+	func has_from_x() -> bool:
+		if __from_x.value != null:
+			return true
+		return false
+	func get_from_x() -> int:
+		return __from_x.value
+	func clear_from_x() -> void:
+		data[1].state = PB_SERVICE_STATE.UNFILLED
+		__from_x.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_from_x(value : int) -> void:
+		__from_x.value = value
+	
+	var __from_y: PBField
+	func has_from_y() -> bool:
+		if __from_y.value != null:
+			return true
+		return false
+	func get_from_y() -> int:
+		return __from_y.value
+	func clear_from_y() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__from_y.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_from_y(value : int) -> void:
+		__from_y.value = value
+	
+	var __to_x: PBField
+	func has_to_x() -> bool:
+		if __to_x.value != null:
+			return true
+		return false
+	func get_to_x() -> int:
+		return __to_x.value
+	func clear_to_x() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__to_x.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_to_x(value : int) -> void:
+		__to_x.value = value
+	
+	var __to_y: PBField
+	func has_to_y() -> bool:
+		if __to_y.value != null:
+			return true
+		return false
+	func get_to_y() -> int:
+		return __to_y.value
+	func clear_to_y() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__to_y.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_to_y(value : int) -> void:
+		__to_y.value = value
+	
+	func _to_string() -> String:
+		return PBPacker.message_to_string(data)
+		
+	func to_bytes() -> PackedByteArray:
+		return PBPacker.pack_message(data)
+		
+	func from_bytes(bytes : PackedByteArray, offset : int = 0, limit : int = -1) -> int:
+		var cur_limit = bytes.size()
+		if limit != -1:
+			cur_limit = limit
+		var result = PBPacker.unpack_message(data, bytes, offset, cur_limit)
+		if result == cur_limit:
+			if PBPacker.check_required(data):
+				if limit == -1:
+					return PB_ERR.NO_ERRORS
+			else:
+				return PB_ERR.REQUIRED_FIELDS
+		elif limit == -1 && result > 0:
+			return PB_ERR.PARSE_INCOMPLETE
+		return result
+	
 class PlaceCardAction:
 	func _init():
 		var service
@@ -1163,6 +1264,12 @@ class GameAction:
 		service.func_ref = Callable(self, "new_place_card")
 		data[__place_card.tag] = service
 		
+		__char_move = PBField.new("char_move", PB_DATA_TYPE.MESSAGE, PB_RULE.OPTIONAL, 5, true, DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE])
+		service = PBServiceField.new()
+		service.field = __char_move
+		service.func_ref = Callable(self, "new_char_move")
+		data[__char_move.tag] = service
+		
 	var data = {}
 	
 	var __player_id: PBField
@@ -1216,8 +1323,27 @@ class GameAction:
 		__place_card.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
 	func new_place_card() -> PlaceCardAction:
 		data[4].state = PB_SERVICE_STATE.FILLED
+		__char_move.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[5].state = PB_SERVICE_STATE.UNFILLED
 		__place_card.value = PlaceCardAction.new()
 		return __place_card.value
+	
+	var __char_move: PBField
+	func has_char_move() -> bool:
+		if __char_move.value != null:
+			return true
+		return false
+	func get_char_move() -> CharacterMoveAction:
+		return __char_move.value
+	func clear_char_move() -> void:
+		data[5].state = PB_SERVICE_STATE.UNFILLED
+		__char_move.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+	func new_char_move() -> CharacterMoveAction:
+		__place_card.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		data[5].state = PB_SERVICE_STATE.FILLED
+		__char_move.value = CharacterMoveAction.new()
+		return __char_move.value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -1657,6 +1783,16 @@ class RoomPlayer:
 		service.field = __name
 		data[__name.tag] = service
 		
+		__position_x = PBField.new("position_x", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 3, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __position_x
+		data[__position_x.tag] = service
+		
+		__position_y = PBField.new("position_y", PB_DATA_TYPE.INT32, PB_RULE.OPTIONAL, 4, true, DEFAULT_VALUES_3[PB_DATA_TYPE.INT32])
+		service = PBServiceField.new()
+		service.field = __position_y
+		data[__position_y.tag] = service
+		
 	var data = {}
 	
 	var __uid: PBField
@@ -1684,6 +1820,32 @@ class RoomPlayer:
 		__name.value = DEFAULT_VALUES_3[PB_DATA_TYPE.STRING]
 	func set_name(value : String) -> void:
 		__name.value = value
+	
+	var __position_x: PBField
+	func has_position_x() -> bool:
+		if __position_x.value != null:
+			return true
+		return false
+	func get_position_x() -> int:
+		return __position_x.value
+	func clear_position_x() -> void:
+		data[3].state = PB_SERVICE_STATE.UNFILLED
+		__position_x.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_position_x(value : int) -> void:
+		__position_x.value = value
+	
+	var __position_y: PBField
+	func has_position_y() -> bool:
+		if __position_y.value != null:
+			return true
+		return false
+	func get_position_y() -> int:
+		return __position_y.value
+	func clear_position_y() -> void:
+		data[4].state = PB_SERVICE_STATE.UNFILLED
+		__position_y.value = DEFAULT_VALUES_3[PB_DATA_TYPE.INT32]
+	func set_position_y(value : int) -> void:
+		__position_y.value = value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -2464,11 +2626,11 @@ class CreateRoomResponse:
 		service.field = __ret
 		data[__ret.tag] = service
 		
-		__room = PBField.new("room", PB_DATA_TYPE.MESSAGE, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE])
+		__room_detail = PBField.new("room_detail", PB_DATA_TYPE.MESSAGE, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE])
 		service = PBServiceField.new()
-		service.field = __room
-		service.func_ref = Callable(self, "new_room")
-		data[__room.tag] = service
+		service.field = __room_detail
+		service.func_ref = Callable(self, "new_room_detail")
+		data[__room_detail.tag] = service
 		
 	var data = {}
 	
@@ -2485,19 +2647,19 @@ class CreateRoomResponse:
 	func set_ret(value) -> void:
 		__ret.value = value
 	
-	var __room: PBField
-	func has_room() -> bool:
-		if __room.value != null:
+	var __room_detail: PBField
+	func has_room_detail() -> bool:
+		if __room_detail.value != null:
 			return true
 		return false
-	func get_room() -> Room:
-		return __room.value
-	func clear_room() -> void:
+	func get_room_detail() -> RoomDetail:
+		return __room_detail.value
+	func clear_room_detail() -> void:
 		data[2].state = PB_SERVICE_STATE.UNFILLED
-		__room.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
-	func new_room() -> Room:
-		__room.value = Room.new()
-		return __room.value
+		__room_detail.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+	func new_room_detail() -> RoomDetail:
+		__room_detail.value = RoomDetail.new()
+		return __room_detail.value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)
@@ -2574,6 +2736,12 @@ class JoinRoomResponse:
 		service.field = __ret
 		data[__ret.tag] = service
 		
+		__room_detail = PBField.new("room_detail", PB_DATA_TYPE.MESSAGE, PB_RULE.OPTIONAL, 2, true, DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE])
+		service = PBServiceField.new()
+		service.field = __room_detail
+		service.func_ref = Callable(self, "new_room_detail")
+		data[__room_detail.tag] = service
+		
 	var data = {}
 	
 	var __ret: PBField
@@ -2588,6 +2756,20 @@ class JoinRoomResponse:
 		__ret.value = DEFAULT_VALUES_3[PB_DATA_TYPE.ENUM]
 	func set_ret(value) -> void:
 		__ret.value = value
+	
+	var __room_detail: PBField
+	func has_room_detail() -> bool:
+		if __room_detail.value != null:
+			return true
+		return false
+	func get_room_detail() -> RoomDetail:
+		return __room_detail.value
+	func clear_room_detail() -> void:
+		data[2].state = PB_SERVICE_STATE.UNFILLED
+		__room_detail.value = DEFAULT_VALUES_3[PB_DATA_TYPE.MESSAGE]
+	func new_room_detail() -> RoomDetail:
+		__room_detail.value = RoomDetail.new()
+		return __room_detail.value
 	
 	func _to_string() -> String:
 		return PBPacker.message_to_string(data)

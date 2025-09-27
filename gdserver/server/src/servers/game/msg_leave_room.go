@@ -43,13 +43,13 @@ func (p *Player) HandleLeaveRoomRequest(msg *pb.Message) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	// 创建离开房间请求，传递玩家ID
+	// 创建离开房间请求，传递房间ID和玩家ID
 	leaveRoomRpc := &pb.LeaveRoomRpcRequest{
+		RoomId:   p.CurrentRoomID, // 传递房间ID
 		PlayerId: p.Uid,
-		// RoomId 可以从玩家状态中获取，或者从请求中解析
 	}
 
-	slog.Info("Calling LeaveRoomRpc", "player_id", p.Uid)
+	slog.Info("Calling LeaveRoomRpc", "player_id", p.Uid, "room_id", p.CurrentRoomID)
 
 	resp, err := client.LeaveRoomRpc(ctx, leaveRoomRpc)
 	if err != nil {
@@ -64,7 +64,10 @@ func (p *Player) HandleLeaveRoomRequest(msg *pb.Message) {
 	if resp.Ret != pb.ErrorCode_OK {
 		slog.Error("离开房间失败，错误码: ", "error_code", resp.Ret)
 	} else {
-		slog.Info("离开房间成功", "player_id", p.Uid, "room_id", resp.RoomId)
+		// 离开房间成功，清空当前房间ID
+		oldRoomID := p.CurrentRoomID
+		p.CurrentRoomID = ""
+		slog.Info("离开房间成功", "player_id", p.Uid, "old_room_id", oldRoomID, "new_room_id", resp.RoomId)
 	}
 
 	// 返回响应

@@ -157,7 +157,18 @@ func (s *BattleServer) CreateRoomRpc(ctx context.Context, req *pb.CreateRoomRpcR
 
 	//todo: room 跟哪个 BattleServer 关联 需要写入到redis里，后续 GameServer收到加入房间请求时可以通过BattleServer的实例ID找到对应的BattleServer
 
-	return &pb.CreateRoomRpcResponse{Ret: pb.ErrorCode_OK, RoomId: roomID}, nil
+	// 返回RoomDetail而不是RoomId
+	roomDetail := &pb.RoomDetail{
+		Room: &pb.Room{
+			Id:             roomID,
+			Name:           "Battle Room",
+			MaxPlayers:     4,
+			CurrentPlayers: 1,
+		},
+		CurrentPlayers: room.GetPlayerList(),
+	}
+
+	return &pb.CreateRoomRpcResponse{Ret: pb.ErrorCode_OK, Room: roomDetail}, nil
 }
 
 func (s *BattleServer) JoinRoomRpc(ctx context.Context, req *pb.JoinRoomRpcRequest) (*pb.JoinRoomRpcResponse, error) {
@@ -180,19 +191,24 @@ func (s *BattleServer) JoinRoomRpc(ctx context.Context, req *pb.JoinRoomRpcReque
 
 	// 广播房间状态给所有玩家（包括新加入的玩家）
 	room.BroadcastRoomStatus()
+	
+	// 新增：广播玩家初始位置信息
+	room.BroadcastInitialPositions(req.Player.PlayerId)
 
-	// 返回当前房间玩家列表
-	playerList := make([]*pb.PlayerInitData, 0, len(room.Players))
-	for playerID := range room.Players {
-		playerList = append(playerList, &pb.PlayerInitData{
-			PlayerId: playerID,
-		})
+	// 返回RoomDetail而不是RoomId
+	roomDetail := &pb.RoomDetail{
+		Room: &pb.Room{
+			Id:             req.RoomId,
+			Name:           "Battle Room",
+			MaxPlayers:     4,
+			CurrentPlayers: int32(len(room.Players)),
+		},
+		CurrentPlayers: room.GetPlayerList(),
 	}
 
 	return &pb.JoinRoomRpcResponse{
-		Ret:     pb.ErrorCode_OK,
-		RoomId:  req.RoomId,
-		Players: playerList,
+		Ret:  pb.ErrorCode_OK,
+		Room: roomDetail,
 	}, nil
 
 }

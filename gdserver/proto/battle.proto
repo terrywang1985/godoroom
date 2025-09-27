@@ -50,6 +50,15 @@ enum ActionType {
   PLACE_CARD = 1;    // 出牌
   SKIP_TURN = 2;    // 跳过回合
   AUTO_CHAT = 3;    // 自动聊天
+  SURRENDER = 4; // 投降
+  CHAR_MOVE = 5; // 移动角色
+}
+
+message CharacterMoveAction {
+  int32 from_x = 1; // 起始位置X
+  int32 from_y = 2; // 起始位置Y
+  int32 to_x = 3;   // 目标位置X
+  int32 to_y = 4;   // 目标位置Y
 }
 
 // 拖放卡牌操作
@@ -58,6 +67,7 @@ message PlaceCardAction {
   int32 target_index = 2; // 目标位置索引（例如：放置到桌面上的某个位置）
 }
 
+
 // 游戏操作日志，记录每次客户端的指令操作
 message GameAction {
   uint64 player_id = 1;
@@ -65,6 +75,7 @@ message GameAction {
   int64 timestamp = 3;  // Unix 毫秒时间戳
   oneof action_detail {
     PlaceCardAction place_card = 4;
+    CharacterMoveAction char_move = 5;
   }
 }
 

@@ -18,6 +18,11 @@ var scene_backgrounds: Array[String] = [
 # 玩家动画场景
 var player_scene = preload("res://scenes/Player.tscn")
 
+# 位置同步相关
+var last_sent_position: Vector2 = Vector2.ZERO
+var position_send_timer: float = 0.0
+var position_send_interval: float = 0.1  # 每0.1秒发送一次位置
+
 func _ready():
 	# 初始化随机种子
 	randomize()
@@ -138,8 +143,14 @@ func _handle_local_player_input(delta):
 		
 		local_player_node.position = new_position
 		
-		# 发送位置更新到服务器
-		NetworkManager.send_player_position(new_position)
+		# 节流位置发送
+		position_send_timer += delta
+		if position_send_timer >= position_send_interval:
+			# 检查位置是否有显著变化（至少移动5像素）
+			if last_sent_position.distance_to(new_position) > 5.0:
+				NetworkManager.send_player_position(new_position)
+				last_sent_position = new_position
+				position_send_timer = 0.0
 
 func _on_player_joined(player_info: Dictionary):
 	var player_id = player_info.id

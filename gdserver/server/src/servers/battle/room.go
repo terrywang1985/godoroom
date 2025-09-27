@@ -24,8 +24,13 @@ type BattleRoom struct {
 }
 
 type PlayerInfo struct {
-	PlayerID uint64
-	Name     string
+	PlayerID  uint64
+	Name      string
+	// 添加位置信息用于记录玩家在房间中的当前位置
+	PositionX int32
+	PositionY int32
+	// 标记是否已经发送过第一次位置更新
+	HasSentInitialPosition bool
 }
 
 type Command struct {
@@ -55,8 +60,13 @@ func (room *BattleRoom) AddPlayer(playerID uint64, name string) {
 	defer room.PlayersMutex.Unlock()
 
 	room.Players[playerID] = &PlayerInfo{
-		PlayerID: playerID,
-		Name:     name,
+		PlayerID:               playerID,
+		Name:                   name,
+		// 设置初始位置为默认值
+		PositionX:              0,
+		PositionY:              0,
+		// 初始状态为未发送位置
+		HasSentInitialPosition: false,
 	}
 
 	slog.Info("Player added to battle room", "room_id", room.BattleID, "player_id", playerID, "player_name", name)
@@ -147,13 +157,89 @@ func (room *BattleRoom) Run() {
 }
 
 func (room *BattleRoom) HandlePlayerCommand(cmd Command) {
+	// ===========================================
+	// Room层面处理：跨游戏状态的功能
+	// ===========================================
+	
+	switch cmd.Action.ActionType {
+	case pb.ActionType_CHAR_MOVE:
+		// 位置移动在Room层面处理（大厅、游戏中都需要）
+		room.handleCharMoveInRoom(cmd)
+		return
+		
+	// case pb.ActionType_AUTO_CHAT:
+	// 	// 聊天在Room层面处理（游戏前后都能聊天）
+	// 	room.handleChatInRoom(cmd)
+	// 	return
+	}
+	
+	// ===========================================
+	// Game层面处理：游戏逻辑相关的功能
+	// ===========================================
+	
+	// 检查游戏是否已开始
 	if room.Game == nil {
+		slog.Warn("[Battle] Game not started yet, ignoring game action", 
+			"action_type", cmd.Action.ActionType, "player_id", cmd.PlayerID)
 		return
 	}
 
+	// 游戏层面的操作（卡牌、回合等）
 	success := room.Game.HandleAction(cmd.PlayerID, cmd.Action)
 	if success {
 		room.BroadcastGameState()
+	}
+}
+
+// handleCharMoveInRoom 在房间层面处理角色移动
+func (room *BattleRoom) handleCharMoveInRoom(cmd Command) {
+	slog.Info("[Battle] Handling CHAR_MOVE in room", "player_id", cmd.PlayerID, "room_id", room.BattleID)
+	
+	// 检查玩家是否在房间中
+	room.PlayersMutex.Lock()
+	playerInfo, exists := room.Players[cmd.PlayerID]
+	if !exists {
+		room.PlayersMutex.Unlock()
+		slog.Error("[Battle] Player not in room", "player_id", cmd.PlayerID, "room_id", room.BattleID)
+		return
+	}
+	
+	moveAction := cmd.Action.GetCharMove()
+	if moveAction == nil {
+		room.PlayersMutex.Unlock()
+		slog.Error("[Battle] CharMove action is nil", "player_id", cmd.PlayerID)
+		return
+	}
+	
+	// 更新房间层面的玩家位置信息
+	isFirstPosition := !playerInfo.HasSentInitialPosition
+	playerInfo.PositionX = moveAction.ToX
+	playerInfo.PositionY = moveAction.ToY
+	
+	// 如果是第一次发送位置，标记为已发送
+	if isFirstPosition {
+		playerInfo.HasSentInitialPosition = true
+		slog.Info("[Battle] Player sent first position", "player_id", cmd.PlayerID, 
+			"pos_x", moveAction.ToX, "pos_y", moveAction.ToY)
+	}
+	
+	room.PlayersMutex.Unlock()
+	
+	slog.Info("[Battle] Player moved in room", "player_id", cmd.PlayerID, 
+		"from_x", moveAction.FromX, "from_y", moveAction.FromY, "to_x", moveAction.ToX, "to_y", moveAction.ToY)
+	
+	// 如果游戏已开始，同时更新游戏层面的位置状态
+	if room.Game != nil {
+		// 调用游戏层面的位置更新（更新游戏内玩家对象的位置）
+		room.Game.HandleAction(cmd.PlayerID, cmd.Action)
+	}
+	
+	// Room层面：广播位置更新给所有玩家
+	room.BroadcastPlayerPosition(cmd.PlayerID, moveAction)
+	
+	// 如果是第一次发送位置，记录日志
+	if isFirstPosition {
+		slog.Info("[Battle] Broadcasted first position to all players", "player_id", cmd.PlayerID)
 	}
 }
 
@@ -244,11 +330,110 @@ func (room *BattleRoom) NotifyGameState(playerId uint64, msg *pb.GameStateNotify
 
 func (room *BattleRoom) GetPlayerList() []*pb.RoomPlayer {
 	var players []*pb.RoomPlayer
+	room.PlayersMutex.RLock()
+	defer room.PlayersMutex.RUnlock()
+	
 	for id, info := range room.Players {
 		players = append(players, &pb.RoomPlayer{
-			Uid:  id,
-			Name: info.Name,
+			Uid:       id,
+			Name:      info.Name,
+			PositionX: info.PositionX,
+			PositionY: info.PositionY,
 		})
 	}
 	return players
+}
+
+// BroadcastPlayerPosition 广播玩家位置更新
+func (room *BattleRoom) BroadcastPlayerPosition(playerID uint64, moveAction *pb.CharacterMoveAction) {
+	slog.Info("Broadcasting player position update", "room_id", room.BattleID, "player_id", playerID, 
+		"from_x", moveAction.FromX, "from_y", moveAction.FromY, "to_x", moveAction.ToX, "to_y", moveAction.ToY)
+	
+	// 创建位置更新消息
+	positionUpdate := &pb.GameAction{
+		PlayerId:   playerID,
+		ActionType: pb.ActionType_CHAR_MOVE,
+		Timestamp:  time.Now().UnixMilli(),
+	}
+	// 设置 CharMove action
+	positionUpdate.ActionDetail = &pb.GameAction_CharMove{
+		CharMove: moveAction,
+	}
+	
+	// 向房间内所有玩家广播
+	for otherPlayerID := range room.Players {
+		room.NotifyPlayerPosition(otherPlayerID, positionUpdate)
+	}
+}
+
+// NotifyPlayerPosition 通知单个玩家位置更新
+func (room *BattleRoom) NotifyPlayerPosition(playerID uint64, positionUpdate *pb.GameAction) {
+	gameServerAddr := fmt.Sprintf("127.0.0.1:%d", rpc.GameServiceGRPCPort)
+	conn, err := grpc.Dial(gameServerAddr, grpc.WithInsecure())
+	if err != nil {
+		slog.Error("Failed to connect to game server for position update", "addr", gameServerAddr, "error", err)
+		return
+	}
+	defer conn.Close()
+	
+	client := pb.NewGameRpcServiceClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	
+	// 使用PlayerActionNotify消息格式发送位置更新
+	notify := &pb.PlayerActionNotify{
+		BeNotifiedUid: playerID,
+		RoomId:        room.BattleID,
+		PlayerId:      positionUpdate.PlayerId,
+		Action:        positionUpdate,
+	}
+	
+	_, err = client.PlayerActionNotifyRpc(ctx, notify)
+	if err != nil {
+		slog.Error("Failed to send position update notification", "player_id", playerID, "error", err)
+	} else {
+		slog.Debug("Position update sent successfully", "player_id", playerID)
+	}
+}
+
+// BroadcastInitialPositions 广播初始位置信息
+func (room *BattleRoom) BroadcastInitialPositions(newPlayerID uint64) {
+	slog.Info("Broadcasting initial positions", "room_id", room.BattleID, "new_player_id", newPlayerID)
+	
+	room.PlayersMutex.RLock()
+	defer room.PlayersMutex.RUnlock()
+	
+	// 只向新玩家发送所有现有玩家的位置
+	// 新玩家的位置等待他们主动发送第一个移动消息时再同步
+	for playerID, playerInfo := range room.Players {
+		if playerID == newPlayerID {
+			continue // 跳过新玩家自己
+		}
+		
+		// 创建位置消息
+		positionAction := &pb.CharacterMoveAction{
+			FromX: 0,
+			FromY: 0,
+			ToX:   playerInfo.PositionX,
+			ToY:   playerInfo.PositionY,
+		}
+		
+		positionUpdate := &pb.GameAction{
+			PlayerId:   playerID,
+			ActionType: pb.ActionType_CHAR_MOVE,
+			Timestamp:  time.Now().UnixMilli(),
+			ActionDetail: &pb.GameAction_CharMove{
+				CharMove: positionAction,
+			},
+		}
+		
+		// 发送给新玩家
+		room.NotifyPlayerPosition(newPlayerID, positionUpdate)
+		slog.Debug("Sent existing player position to new player", 
+			"existing_player", playerID, "new_player", newPlayerID, 
+			"pos_x", playerInfo.PositionX, "pos_y", playerInfo.PositionY)
+	}
+	
+	slog.Info("Initial positions sent to new player", "new_player_id", newPlayerID, 
+		"existing_players_count", len(room.Players)-1)
 }

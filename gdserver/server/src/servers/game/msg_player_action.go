@@ -18,6 +18,17 @@ func (p *Player) HandlePlayerActionRequest(msg *pb.Message) {
 		return
 	}
 
+	// 检查玩家是否在房间中
+	if p.CurrentRoomID == "" {
+		slog.Error("玩家不在任何房间中", "player_id", p.Uid)
+		p.SendResponse(msg, mustMarshal(&pb.GameActionResponse{
+			Ret: pb.ErrorCode_INVALID_ROOM,
+		}))
+		return
+	}
+
+	slog.Info("处理玩家动作请求", "player_id", p.Uid, "room_id", p.CurrentRoomID, "action_type", req.Action.GetActionType())
+
 	//创建grp client 并给battleserver阻塞发送,  grpc CreateRoom
 	conn, err := grpc.Dial(
 		"127.0.0.1:8693",
@@ -27,6 +38,9 @@ func (p *Player) HandlePlayerActionRequest(msg *pb.Message) {
 	)
 	if err != nil {
 		log.Printf("连接BattleServer失败: %s, 错误: %v", "127.0.0.1:8693", err)
+		p.SendResponse(msg, mustMarshal(&pb.GameActionResponse{
+			Ret: pb.ErrorCode_SERVER_ERROR,
+		}))
 		return
 	}
 	defer conn.Close()
@@ -36,7 +50,9 @@ func (p *Player) HandlePlayerActionRequest(msg *pb.Message) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
+	// 添加room_id字段
 	actionRpc := &pb.PlayerActionRpcRequest{
+		RoomId:   p.CurrentRoomID, // 传递房间ID
 		PlayerId: p.Uid,
 		Action:   req.Action,
 	}

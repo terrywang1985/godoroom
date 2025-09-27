@@ -49,15 +49,30 @@ func (p *Player) HandleJoinRoomRequest(msg *pb.Message) {
 	resp, err := client.JoinRoomRpc(ctx, joinRoomRpc)
 	if err != nil {
 		slog.Error("加入房间RPC调用失败: ", "error", err)
+		p.SendResponse(msg, mustMarshal(&pb.JoinRoomResponse{
+			Ret: pb.ErrorCode_SERVER_ERROR,
+		}))
 		return
 	}
 
-	if resp.Ret != pb.ErrorCode_OK {
-		slog.Error("加入房间，错误码: ", "error_code", resp.Ret)
+	// 修复：使用新的RoomDetail字段访问方式
+	roomId := ""
+	if resp.GetRoom() != nil && resp.GetRoom().GetRoom() != nil {
+		roomId = resp.GetRoom().GetRoom().GetId()
 	}
 
-	// 返回新用户信息
+	if resp.Ret != pb.ErrorCode_OK {
+		slog.Error("加入房间失败，错误码: ", "error_code", resp.Ret)
+	} else {
+		// 加入房间成功，设置当前房间ID
+		p.CurrentRoomID = roomId
+		slog.Info("玩家成功加入房间", "player_id", p.Uid, "room_id", p.CurrentRoomID)
+	}
+
+	// 返回响应
+	// 直接使用RPC返回的RoomDetail，而不是自己构造
 	p.SendResponse(msg, mustMarshal(&pb.JoinRoomResponse{
-		Ret: resp.Ret,
+		Ret:         resp.Ret,
+		RoomDetail: resp.GetRoom(), // 直接使用RPC返回的RoomDetail
 	}))
 }

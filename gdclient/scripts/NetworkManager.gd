@@ -36,6 +36,9 @@ var user_uid: int = 0
 var user_nickname: String = ""
 var current_room_id: String = ""
 
+# 位置同步相关
+var last_sent_position: Vector2 = Vector2.ZERO
+
 func _ready():
 	websocket = WebSocketPeer.new()
 	# 创建HTTP请求节点
@@ -218,6 +221,10 @@ func _handle_message(data: PackedByteArray):
 			_handle_room_state_notification_protobuf(msg_data)
 		15: # GAME_STATE_NOTIFICATION
 			_handle_game_state_notification_protobuf(msg_data)
+		21: # GAME_ACTION_RESPONSE
+			_handle_game_action_response_protobuf(msg_data)
+		22: # GAME_ACTION_NOTIFICATION
+			_handle_game_action_notification_protobuf(msg_data)
 		_:
 			print("未知的消息ID: ", msg_id)
 
@@ -281,7 +288,9 @@ func _handle_create_room_response_protobuf(data: PackedByteArray):
 	
 	var ret = response.get_ret()
 	if ret == 0:  # ErrorCode.OK
-		var room_proto = response.get_room()
+		# 修改：使用新的room_detail字段而不是room字段
+		var room_detail = response.get_room_detail()
+		var room_proto = room_detail.get_room()
 		var room = {
 			"id": room_proto.get_id(),
 			"name": room_proto.get_name(),
@@ -291,6 +300,18 @@ func _handle_create_room_response_protobuf(data: PackedByteArray):
 		current_room_id = room["id"]
 		room_created.emit(room)
 		print("房间创建成功: ", room["name"])
+		
+		# 处理房间内的玩家列表（包括位置信息）
+		var players = []
+		for player_proto in room_detail.get_current_players():
+			var player = {
+				"uid": player_proto.get_uid(),
+				"name": player_proto.get_name(),
+				"position_x": player_proto.get_position_x(),
+				"position_y": player_proto.get_position_y()
+			}
+			players.append(player)
+		print("房间内玩家列表: ", players)
 	else:
 		print("创建房间失败")
 
@@ -304,6 +325,23 @@ func _handle_join_room_response_protobuf(data: PackedByteArray):
 	
 	var ret = response.get_ret()
 	if ret == 0:  # ErrorCode.OK
+		# 修改：使用新的room_detail字段而不是room字段
+		var room_detail = response.get_room_detail()
+		var room_proto = room_detail.get_room()
+		current_room_id = room_proto.get_id()
+		
+		# 处理房间内的玩家列表（包括位置信息）
+		var players = []
+		for player_proto in room_detail.get_current_players():
+			var player = {
+				"uid": player_proto.get_uid(),
+				"name": player_proto.get_name(),
+				"position_x": player_proto.get_position_x(),
+				"position_y": player_proto.get_position_y()
+			}
+			players.append(player)
+		print("加入房间成功，房间内玩家列表: ", players)
+		
 		room_joined.emit()
 		print("加入房间成功")
 	else:
@@ -362,6 +400,69 @@ func _handle_game_state_notification_protobuf(data: PackedByteArray):
 	# 这里暂时使用简化处理
 	print("收到游戏状态通知")
 	# TODO: 实现具体的 GAME_STATE_NOTIFICATION 反序列化
+
+func _handle_game_action_response_protobuf(data: PackedByteArray):
+	# 处理游戏动作响应
+	var response = GameProto.GameActionResponse.new()
+	var result = response.from_bytes(data)
+	
+	if result == GameProto.PB_ERR.NO_ERRORS:
+		var ret = response.get_ret()
+		if ret == 0:  # ErrorCode.OK
+			print("游戏动作执行成功")
+		else:
+			# 根据ErrorCode定义输出错误信息
+			match ret:
+				12:  # INVALID_ROOM
+					print("=== 游戏动作失败: INVALID_ROOM ===")
+					print("当前房间ID: ", current_room_id)
+					print("当前用户ID: ", user_uid)
+					print("可能原因:")
+					print("1. GameServer未正确传递room_id给BattleServer")
+					print("2. 玩家不在正确的游戏房间状态")
+					print("3. BattleServer中没有对应的房间")
+					print("===============================")
+				10: # INVALID_ACTION
+					print("游戏动作失败: 无效的动作")
+				_:
+					print("游戏动作失败: 错误码 ", ret)
+	else:
+		print("解析GameActionResponse失败: ", result)
+
+func _handle_game_action_notification_protobuf(data: PackedByteArray):
+	# 处理游戏动作通知（包括位置更新）
+	var action_notify = GameProto.PlayerActionNotify.new()
+	var result = action_notify.from_bytes(data)
+	
+	if result == GameProto.PB_ERR.NO_ERRORS:
+		var player_id = action_notify.get_player_id()
+		var action = action_notify.get_action()
+		
+		# 检查是否是角色移动动作（action_type = 5）
+		if action.get_action_type() == 5 and action.has_char_move():
+			var char_move = action.get_char_move()
+			var from_pos = Vector2(char_move.get_from_x(), char_move.get_from_y())
+			var to_pos = Vector2(char_move.get_to_x(), char_move.get_to_y())
+			
+			print("收到玩家移动：ID=", player_id, "，从 ", from_pos, " 移动到 ", to_pos)
+			
+			# 更新GameState中的玩家位置
+			GameStateManager.update_player_position(player_id, to_pos)
+		# 检查是否是旧的位置更新动作（兼容性）
+		elif action.get_action_type() == 3 and action.has_place_card():
+			var place_card = action.get_place_card()
+			var position_x = place_card.get_card_id()  # x坐标
+			var position_y = place_card.get_target_index()  # y坐标
+			var position = Vector2(position_x, position_y)
+			
+			print("收到旧版玩家位置更新：ID=", player_id, "，位置=", position)
+			
+			# 更新GameState中的玩家位置
+			GameStateManager.update_player_position(player_id, position)
+		else:
+			print("收到其他游戏动作：类型=", action.get_action_type())
+	else:
+		print("解析PlayerActionNotify失败: ", result)
 
 func send_message(msg_id: int, data_bytes: PackedByteArray):
 	if not is_connected:
@@ -461,10 +562,33 @@ func leave_room():
 # 发送玩家位置更新
 func send_player_position(position: Vector2):
 	if current_room_id.is_empty():
+		print("无法发送位置: 当前没有在任何房间中")
 		return
 	
-	# 创建游戏状态通知消息
-	# 这里可能需要使用具体的游戏动作消息
-	# 暂时使用简化处理
-	print("发送玩家位置: ", position)
-	# TODO: 实现具体的位置更新 Protobuf 消息
+	if user_uid == 0:
+		print("无法发送位置: 用户未登录")
+		return
+	
+	print("准备发送位置: 房间ID=", current_room_id, ", 用户ID=", user_uid)
+	
+	var request = GameProto.GameActionRequest.new()
+	# 使用new_action()方法创建GameAction并设置
+	var action = request.new_action()
+	action.set_player_id(user_uid)
+	action.set_action_type(5)  # CHAR_MOVE
+	action.set_timestamp(Time.get_unix_time_from_system() * 1000)
+	
+	# 使用oneof结构：new_char_move()方法创建CharacterMoveAction
+	var move_action = action.new_char_move()
+	move_action.set_from_x(int(last_sent_position.x))
+	move_action.set_from_y(int(last_sent_position.y))
+	move_action.set_to_x(int(position.x))
+	move_action.set_to_y(int(position.y))
+	
+	# 更新last_sent_position
+	last_sent_position = position
+	
+	var proto_bytes = request.to_bytes()
+	send_message(20, proto_bytes)  # GAME_ACTION_REQUEST = 20
+	
+	print("发送玩家位置: ", last_sent_position, " -> ", position)

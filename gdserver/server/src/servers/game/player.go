@@ -48,6 +48,9 @@ type Player struct {
 	Gold    int64
 	Diamond int64
 
+	// 房间信息
+	CurrentRoomID string // 当前所在房间ID
+
 	// 抽卡信息
 	DrawCardInfo *DrawCardInfo
 
@@ -334,6 +337,7 @@ func (p *Player) cleanupBattleRoom() {
 
 	// 发送离开房间请求
 	leaveRoomRpc := &pb.LeaveRoomRpcRequest{
+		RoomId:   p.CurrentRoomID, // 传递房间ID
 		PlayerId: p.Uid,
 	}
 
@@ -345,6 +349,8 @@ func (p *Player) cleanupBattleRoom() {
 
 	if resp.Ret == pb.ErrorCode_OK {
 		slog.Info("Successfully cleaned up battle room", "player_id", p.Uid, "room_id", resp.RoomId)
+		// 清理成功后清空房间ID
+		p.CurrentRoomID = ""
 	} else {
 		slog.Warn("Battle room cleanup returned error", "player_id", p.Uid, "error_code", resp.Ret)
 	}

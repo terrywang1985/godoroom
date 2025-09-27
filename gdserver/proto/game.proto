@@ -11,7 +11,9 @@ option go_package = "server/src/proto";
 message RoomPlayer {
   uint64 uid = 1;
   string name = 2;
-  //Position position = 3;
+  // 在房间中的位置信息
+  int32 position_x = 3;
+  int32 position_y = 4;
 }
 
 message Room {
@@ -71,7 +73,7 @@ message CreateRoomRequest {
 
 message CreateRoomResponse {
   ErrorCode ret = 1;
-  Room room = 2;
+  RoomDetail room_detail = 2;  // 返回RoomDetail而不是Room，包含房主位置信息
 }
 
 message JoinRoomRequest {
@@ -80,6 +82,7 @@ message JoinRoomRequest {
 
 message JoinRoomResponse {
   ErrorCode ret = 1;
+  RoomDetail room_detail = 2;  // 返回RoomDetail而不是仅RoomId，包含所有玩家位置信息
 }
 
 message LeaveRoomRequest {

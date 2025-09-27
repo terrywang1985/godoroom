@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"math/rand"
 	"os"
 	pb "proto"
@@ -27,10 +28,13 @@ type Game interface {
 
 // Player 玩家结构体
 type Player struct {
-	ID    uint64
-	Name  string
-	Hand  []GameCard
-	Score int
+	ID       uint64
+	Name     string
+	Hand     []GameCard
+	Score    int
+	// 位置信息 - 使用int32配合protobuf的CharacterMoveAction
+	PositionX int32
+	PositionY int32
 }
 
 // GameCard 卡牌结构体
@@ -48,6 +52,8 @@ type WordCardGame struct {
 	CurrentTurn int
 	LastPlayed  int
 	PassCount   int
+	// 添加房间引用用于广播
+	Room        *BattleRoom
 }
 
 func (g *WordCardGame) Init(players []*Player) {
@@ -62,31 +68,68 @@ func (g *WordCardGame) Start() {
 }
 
 func (g *WordCardGame) HandleAction(playerID uint64, action *pb.GameAction) bool {
+	// 添加接收action的日志
+	log.Printf("[Battle] HandleAction - PlayerID: %d, ActionType: %v", playerID, action.ActionType)
+	
 	player := g.findPlayerByID(playerID)
 	if player == nil {
+		log.Printf("[Battle] HandleAction - Player not found: %d", playerID)
 		return false
 	}
 
 	switch action.ActionType {
 	case pb.ActionType_PLACE_CARD:
+		log.Printf("[Battle] Handling PLACE_CARD action for player %d", playerID)
 		placeCard := action.GetPlaceCard()
 		cardIdx := int(placeCard.CardId)
 		if cardIdx < 0 || cardIdx >= len(player.Hand) {
+			log.Printf("[Battle] Invalid card index: %d for player %d", cardIdx, playerID)
 			return false
 		}
 		card := player.Hand[cardIdx]
 		success := g.playCard(player, card, int(placeCard.TargetIndex))
 		if success {
 			g.PassCount = 0
+			log.Printf("[Battle] Card placed successfully by player %d", playerID)
 			return true
 		}
+		log.Printf("[Battle] Failed to place card for player %d", playerID)
 	case pb.ActionType_SKIP_TURN:
+		log.Printf("[Battle] Handling SKIP_TURN action for player %d", playerID)
 		g.PassCount++
 		if g.PassCount >= len(g.Players) {
+			log.Printf("[Battle] All players passed, scoring and resetting")
 			g.scoreAndReset()
 			g.PassCount = 0
 		}
 		return true
+	case pb.ActionType_CHAR_MOVE:
+		log.Printf("[Battle] Handling CHAR_MOVE action for player %d", playerID)
+		moveAction := action.GetCharMove()
+		if moveAction == nil {
+			log.Printf("[Battle] CharMove action is nil for player %d", playerID)
+			return false
+		}
+		
+		// 记录位置移动信息
+		log.Printf("[Battle] Player %d moved from (%d, %d) to (%d, %d)", 
+			playerID, moveAction.FromX, moveAction.FromY, moveAction.ToX, moveAction.ToY)
+		
+		// 更新玩家在游戏中的位置状态
+		if player := g.findPlayerByID(playerID); player != nil {
+			player.PositionX = moveAction.ToX
+			player.PositionY = moveAction.ToY
+			log.Printf("[Battle] Updated player %d position to (%d, %d)", playerID, player.PositionX, player.PositionY)
+		}
+		
+		// 广播位置更新给其他玩家
+		if g.Room != nil {
+			g.BroadcastPlayerPositionUpdate(playerID, moveAction)
+		}
+		
+		return true
+	default:
+		log.Printf("[Battle] Unknown action type: %v for player %d", action.ActionType, playerID)
 	}
 	return false
 }
@@ -129,6 +172,19 @@ func (g *WordCardGame) IsGameOver() bool {
 
 func (g *WordCardGame) EndGame() {
 	// 游戏结束逻辑，可添加奖励发放等
+}
+
+// BroadcastPlayerPositionUpdate 广播玩家位置更新
+func (g *WordCardGame) BroadcastPlayerPositionUpdate(playerID uint64, moveAction *pb.CharacterMoveAction) {
+	if g.Room == nil {
+		log.Printf("[Battle] Cannot broadcast position update: Room is nil")
+		return
+	}
+	
+	log.Printf("[Battle] Broadcasting position update for player %d to all other players", playerID)
+	
+	// 通过房间广播给所有玩家（包括自己）
+	g.Room.BroadcastPlayerPosition(playerID, moveAction)
 }
 
 // 内部辅助方法
