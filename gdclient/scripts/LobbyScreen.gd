@@ -11,6 +11,9 @@ extends Control
 @onready var school_content = $ContentContainer/SchoolContent
 @onready var my_content = $ContentContainer/MyContent
 
+# 房间列表界面
+@onready var room_list_screen = $RoomListScreen
+
 var current_rooms = []
 var current_tab = "battle"  # 当前选中的标签页
 
@@ -22,6 +25,11 @@ func _ready():
 	
 	# 连接游戏状态管理器的信号
 	GameStateManager.player_joined.connect(_on_player_joined)
+	
+	# 连接房间列表界面的信号
+	if room_list_screen:
+		room_list_screen.room_selected.connect(_on_room_selected)
+		room_list_screen.closed.connect(_on_room_list_closed)
 	
 	# 默认显示对战页面
 	_switch_to_tab("battle")
@@ -99,7 +107,9 @@ func _generate_room_name() -> String:
 
 # 房间列表按钮事件  
 func _on_refresh_button_pressed():
-	_refresh_room_list()
+	print("显示房间列表")
+	if room_list_screen:
+		room_list_screen.show_room_list()
 
 # 标签页按钮事件
 func _on_battle_tab_pressed():
@@ -125,7 +135,16 @@ func _refresh_room_list():
 func _on_room_list_received(rooms):
 	current_rooms = rooms
 	print("收到房间列表: ", rooms.size(), "个房间")
-	# TODO: 显示房间列表界面
+	# 更新房间列表界面的数据
+	if room_list_screen:
+		room_list_screen._on_room_list_received(rooms)
+
+func _on_room_selected(room_id: String):
+	print("选择加入房间: ", room_id)
+	# 加入房间的逻辑已经在RoomListScreen中处理
+
+func _on_room_list_closed():
+	print("关闭房间列表")
 
 func _on_room_created(room: Dictionary):
 	print("房间创建成功，进入房间: ", room.get("name", ""))

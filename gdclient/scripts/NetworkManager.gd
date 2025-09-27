@@ -69,12 +69,21 @@ func _process(_delta):
 				print("WebSocket 连接断开")
 
 # HTTP游客登录
-func guest_login():
+func guest_login(test_suffix: String = ""):
 	print("开始HTTP游客登录...")
 	
-	# 准备登录数据
+	# 准备登录数据，支持测试账号后缀
+	var base_device_id = "godoroom_" + OS.get_unique_id()
+	var device_id = base_device_id
+	
+	# 如果有测试后缀，加到device_id后面
+	if test_suffix.length() > 0:
+		device_id = base_device_id + "_test_" + test_suffix
+		print("使用测试账号后缀: ", test_suffix)
+		print("生成测试设备ID: ", device_id)
+	
 	var login_data = {
-		"device_id": "godoroom_" + OS.get_unique_id(),
+		"device_id": device_id,
 		"app_id": "desktop_app",
 		"is_guest": true
 	}

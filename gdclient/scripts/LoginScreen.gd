@@ -1,6 +1,7 @@
 extends Control
 
 @onready var guest_login_button = $UIContainer/ButtonContainer/GuestLoginButton
+@onready var test_account_input = $UIContainer/ButtonContainer/TestAccountContainer/TestAccountInput
 
 func _ready():
 	# 连接网络管理器的信号
@@ -13,12 +14,18 @@ func _ready():
 
 func _on_guest_login_button_pressed():
 	guest_login_button.disabled = true
-	print("开始游客登录...")
+	
+	# 获取测试账号输入
+	var test_suffix = test_account_input.text.strip_edges()
+	if test_suffix.length() > 0:
+		print("开始测试账号登录: ", test_suffix)
+	else:
+		print("开始游客登录...")
 	
 	print("使用默认登录地址: ", NetworkManager.login_url)
 	
-	# 开始HTTP游客登录
-	if not NetworkManager.guest_login():
+	# 开始HTTP游客登录（传递测试后缀）
+	if not NetworkManager.guest_login(test_suffix):
 		print("HTTP请求发送失败")
 		guest_login_button.disabled = false
 

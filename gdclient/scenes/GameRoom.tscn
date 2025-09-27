@@ -1,6 +1,30 @@
-[gd_scene load_steps=2 format=3 uid="uid://e4z6a8b0c2d5g"]
+[gd_scene load_steps=5 format=3 uid="uid://e4z6a8b0c2d5g"]
 
 [ext_resource type="Script" path="res://scripts/GameRoom.gd" id="1_1q3vm"]
+[ext_resource type="Texture2D" uid="uid://ca6iv24auxwqv" path="res://assets/backgrounds/room_scene1.webp" id="2_bg"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1"]
+bg_color = Color(0, 0, 0, 0.6)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2"]
+bg_color = Color(0.8, 0.2, 0.2, 0.9)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.5, 0.5, 1)
+content_margin_left = 15.0
+content_margin_top = 8.0
+content_margin_right = 15.0
+content_margin_bottom = 8.0
 
 [node name="GameRoom" type="Control"]
 layout_mode = 3
@@ -9,50 +33,73 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource("1_1q3vm")
 
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+texture = ExtResource("2_bg")
+expand_mode = 1
+stretch_mode = 5
+
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 
-[node name="RoomInfoContainer" type="HBoxContainer" parent="VBoxContainer"]
+[node name="TopPanel" type="Panel" parent="VBoxContainer"]
 layout_mode = 2
+size_flags_vertical = 0
+custom_minimum_size = Vector2(0, 60)
+theme_override_styles/panel = SubResource("StyleBoxFlat_1")
 
-[node name="RoomNameLabel" type="Label" parent="VBoxContainer/RoomInfoContainer"]
-layout_mode = 2
-text = "房间: "
+[node name="TopContainer" type="HBoxContainer" parent="VBoxContainer/TopPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 15.0
+offset_top = 10.0
+offset_right = -15.0
+offset_bottom = -10.0
 
-[node name="VSeparator" type="VSeparator" parent="VBoxContainer/RoomInfoContainer"]
+[node name="RoomNameLabel" type="Label" parent="VBoxContainer/TopPanel/TopContainer"]
 layout_mode = 2
+text = "房间"
+theme_override_font_sizes/font_size = 24
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.5)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
 
-[node name="PlayerCountLabel" type="Label" parent="VBoxContainer/RoomInfoContainer"]
+[node name="Spacer" type="Control" parent="VBoxContainer/TopPanel/TopContainer"]
 layout_mode = 2
-text = "玩家数量: 1/4"
+size_flags_horizontal = 3
 
-[node name="HSeparator" type="HSeparator" parent="VBoxContainer"]
+[node name="PlayerCountLabel" type="Label" parent="VBoxContainer/TopPanel/TopContainer"]
 layout_mode = 2
+text = "1/4"
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.8, 0.9, 1, 1)
+
+[node name="LeaveButton" type="Button" parent="VBoxContainer/TopPanel/TopContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(100, 40)
+text = "离开"
+theme_override_font_sizes/font_size = 20
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 0.8, 0.8, 1)
+theme_override_colors/font_pressed_color = Color(1, 0.6, 0.6, 1)
+theme_override_styles/normal = SubResource("StyleBoxFlat_2")
+theme_override_styles/hover = SubResource("StyleBoxFlat_2")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_2")
 
 [node name="GameArea" type="Panel" parent="VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
+color = Color(1, 1, 1, 0.1)
 
 [node name="PlayersContainer" type="Node2D" parent="VBoxContainer/GameArea"]
 
-[node name="HSeparator2" type="HSeparator" parent="VBoxContainer"]
-layout_mode = 2
-
-[node name="ControlsContainer" type="HBoxContainer" parent="VBoxContainer"]
-layout_mode = 2
-
-[node name="MovementLabel" type="Label" parent="VBoxContainer/ControlsContainer"]
-layout_mode = 2
-text = "移动: WASD键"
-
-[node name="VSeparator2" type="VSeparator" parent="VBoxContainer/ControlsContainer"]
-layout_mode = 2
-
-[node name="LeaveButton" type="Button" parent="VBoxContainer/ControlsContainer"]
-layout_mode = 2
-text = "离开房间"
-
-[connection signal="pressed" from="VBoxContainer/ControlsContainer/LeaveButton" to="." method="_on_leave_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/TopPanel/TopContainer/LeaveButton" to="." method="_on_leave_button_pressed"]

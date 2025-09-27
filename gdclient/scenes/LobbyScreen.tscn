@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://d3y5z7a9b1c4f"]
+[gd_scene load_steps=14 format=3 uid="uid://d3y5z7a9b1c4f"]
 
 [ext_resource type="Script" path="res://scripts/LobbyScreen.gd" id="1_1q3vm"]
 [ext_resource type="Texture2D" path="res://assets/backgrounds/battle_bg.png" id="2_battle_bg"]
@@ -12,6 +12,7 @@
 [ext_resource type="Texture2D" path="res://assets/button_backgrounds/create_room_btn.png" id="10_create_room_btn"]
 [ext_resource type="Texture2D" path="res://assets/button_backgrounds/room_list_btn.png" id="11_room_list_btn"]
 [ext_resource type="Texture2D" path="res://assets/button_backgrounds/match_btn.png" id="12_match_btn"]
+[ext_resource type="PackedScene" uid="uid://bx8y6z1a9c2d4" path="res://scenes/RoomListScreen.tscn" id="13_room_list"]
 
 [node name="LobbyScreen" type="Control"]
 layout_mode = 3
@@ -225,6 +226,9 @@ custom_minimum_size = Vector2(0, 120)
 texture_normal = ExtResource("9_mypage_btn")
 expand_mode = 2
 stretch_mode = 5
+
+[node name="RoomListScreen" parent="." instance=ExtResource("13_room_list")]
+visible = false
 
 [connection signal="pressed" from="ContentContainer/BattleContent/BattleMenu/CreateRoomButton" to="." method="_on_create_room_button_pressed"]
 [connection signal="pressed" from="ContentContainer/BattleContent/BattleMenu/RefreshButton" to="." method="_on_refresh_button_pressed"]
